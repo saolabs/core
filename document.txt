@@ -1,0 +1,385 @@
+# HƯỚNG DẪN SỬ DỤNG THƯ VIỆN One
+
+## GIỚI THIỆU
+
+One là thư viện hỗ trợ phát triển ứng dụng Laravel nhanh chóng và bảo mật. Thư viện cung cấp các thành phần như Service, Model, Repository, Helper và nhiều tiện ích khác giúp tăng hiệu suất, đảm bảo bảo mật và đơn giản hóa quá trình phát triển.
+
+### Tính năng nổi bật
+- Service, Repository, Model mở rộng
+- API Resources chuẩn hóa dữ liệu
+- Middleware bảo mật tích hợp sẵn
+- Helper tiện ích đa dạng
+- Hỗ trợ SoftDeletes, Logging, UUID
+- Tương thích hoàn toàn với Laravel Octane
+
+## CÀI ĐẶT
+
+### Yêu cầu hệ thống
+- PHP 8.1 trở lên
+- Laravel 11.0 hoặc 12.0 trở lên
+
+### Cài đặt qua Composer
+```bash
+composer require one/core
+```
+
+## CẤU HÌNH
+
+Thư viện tự động đăng ký `OneServiceProvider`. Bạn cũng có thể thêm thủ công trong `config/app.php`:
+
+```php
+'providers' => [
+    One\Providers\OneServiceProvider::class,
+],
+```
+
+## HƯỚNG DẪN SỬ DỤNG
+
+### 1. Helper Functions
+
+One cung cấp nhiều hàm helper tiện ích:
+
+```php
+// Định dạng tiền tệ
+echo format_currency(1000000, 'VND'); // "1.000.000 VND"
+
+// Chuyển đổi ngày tháng
+echo format_date('2023-10-25', 'd/m/Y'); // "25/10/2023" 
+
+// Kiểm tra quyền truy cập
+if (has_permission('users.create')) {
+    // Thực hiện tác vụ
+}
+```
+
+### 2. Repository Pattern
+
+Repository Pattern giúp tách biệt logic truy cập dữ liệu:
+
+```php
+// Sử dụng Dependency Injection
+public function __construct(
+    private \One\Repositories\UserRepository $userRepo
+) {}
+
+// Các thao tác dữ liệu
+$users = $this->userRepo->all();
+$user = $this->userRepo->find($id);
+$newUser = $this->userRepo->create([
+    'name' => 'Nguyễn Văn A',
+    'email' => 'nva@example.com'
+]);
+```
+
+Hoặc thông qua Service Container:
+
+```php
+$userRepo = app(\One\Repositories\UserRepository::class);
+$users = $userRepo->paginate(20);
+```
+
+### 3. Model Concerns
+
+One cung cấp nhiều traits để mở rộng Eloquent Models:
+
+```php
+use Illuminate\Database\Eloquent\Model;
+use One\Concerns\HasUuid;
+use One\Concerns\HasSlug;
+use One\Concerns\HasMetadata;
+
+class Product extends Model
+{
+    use HasUuid, HasSlug, HasMetadata;
+    
+    protected $fillable = ['name', 'slug', 'price', 'description'];
+    
+    // Cấu hình thêm cho các traits
+    protected $slugFrom = 'name';
+    protected $uuidColumn = 'uuid';
+}
+```
+
+### 4. Service Pattern
+
+Services giúp tách biệt logic nghiệp vụ:
+
+```php
+// Sử dụng qua Dependency Injection
+public function __construct(
+    private \One\Services\EmailService $emailService
+) {}
+
+// Gọi các phương thức service
+$this->emailService->sendWelcomeEmail($user);
+$this->emailService->sendPasswordResetNotification($user, $token);
+```
+
+### 5. API Resources
+
+Chuẩn hóa dữ liệu trả về từ API:
+
+```php
+use One\Http\Resources\ApiResource;
+
+class UserResource extends ApiResource
+{
+    public function toArray($request)
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'created_at' => $this->formatDate($this->created_at),
+            'permissions' => $this->whenLoaded('permissions')
+        ];
+    }
+}
+```
+
+## TƯƠNG THÍCH VỚI LARAVEL OCTANE
+
+Laravel Octane tăng tốc ứng dụng bằng cách giữ ứng dụng trong bộ nhớ giữa các request. One được thiết kế đặc biệt để tương thích với Octane, tránh các vấn đề về rò rỉ trạng thái.
+
+### Cài đặt Octane
+
+```bash
+composer require laravel/octane
+php artisan octane:install
+```
+
+### Giải quyết vấn đề rò rỉ trạng thái
+
+Khi ứng dụng Laravel chạy với Octane, trạng thái tĩnh có thể bị rò rỉ giữa các request. One cung cấp giải pháp toàn diện:
+
+#### 1. OctaneCompatible interface và OctaneCompatibleMethods trait
+
+Để đảm bảo lớp của bạn tương thích với Octane, hãy triển khai OctaneCompatible interface và sử dụng OctaneCompatibleMethods trait:
+
+```php
+use One\Contracts\OctaneCompatible;
+use One\Concerns\OctaneCompatibleMethods;
+
+class YourService implements OctaneCompatible
+{
+    use OctaneCompatibleMethods;
+    
+    // Trạng thái tĩnh - sẽ được tự động reset sau mỗi request
+    protected static array $cache = [];
+    
+    // Trạng thái instance - cũng sẽ được reset
+    protected array $requestData = [];
+    
+    public function setData($key, $value)
+    {
+        $this->requestData[$key] = $value;
+    }
+    
+    // Các phương thức khác...
+}
+```
+
+Lớp này sẽ tự động được xử lý bởi OctaneServiceProvider, đảm bảo trạng thái tĩnh và instance được reset sau mỗi request.
+
+#### 2. Tùy chỉnh cách reset trạng thái
+
+Bạn có thể ghi đè các phương thức từ trait để tùy chỉnh logic reset:
+
+```php
+use One\Contracts\OctaneCompatible;
+use One\Concerns\OctaneCompatibleMethods;
+
+class CustomCacheService implements OctaneCompatible
+{
+    use OctaneCompatibleMethods;
+    
+    protected static array $complexCache = [];
+    protected $connection;
+    
+    // Ghi đè phương thức resetStaticState
+    public static function resetStaticState(): void
+    {
+        // Logic tùy chỉnh để reset trạng thái tĩnh
+        static::$complexCache = [];
+        // Các reset khác...
+    }
+    
+    // Ghi đè phương thức resetInstanceState
+    public function resetInstanceState(): void
+    {
+        // Đóng kết nối và tạo mới
+        $this->connection = null;
+        // Các reset khác...
+    }
+}
+```
+
+#### 3. Các nguyên tắc khi làm việc với Octane
+
+- **Tránh trạng thái tĩnh**: Không lưu dữ liệu request trong biến tĩnh
+- **Triển khai OctaneCompatible**: Cho các lớp cần duy trì trạng thái
+- **Đóng tài nguyên**: Đảm bảo các kết nối, handlers được đóng đúng cách
+- **Singletons cẩn thận**: Reset trạng thái của singleton sau mỗi request
+
+## BẢO MẬT VÀ HIỆU SUẤT
+
+### Các thực hành tốt nhất
+
+1. **Repository Pattern**: Tách biệt logic truy cập dữ liệu
+2. **Eager Loading**: Tránh N+1 queries với `with()` 
+3. **Middleware bảo mật**: Sử dụng các middleware có sẵn
+4. **Cache hợp lý**: Tận dụng hệ thống cache của One
+5. **Octane Compatible**: Đảm bảo tương thích với Octane
+
+### Middleware Bảo mật
+
+One cung cấp các middleware bảo mật:
+
+- **CsrfProtection**: Chống CSRF
+- **RateLimiter**: Giới hạn số lượng request
+- **XssProtection**: Chống XSS
+- **SqlInjectionProtection**: Chống SQL Injection
+
+## VÍ DỤ THỰC TẾ
+
+### Ví dụ 1: API RESTful với One
+
+```php
+// Controller
+namespace App\Http\Controllers\Api;
+
+use App\Models\Post;
+use App\Http\Resources\PostResource;
+use One\Repositories\PostRepository;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+
+class PostController extends Controller
+{
+    protected $postRepo;
+    
+    public function __construct(PostRepository $postRepo)
+    {
+        $this->postRepo = $postRepo;
+    }
+    
+    public function index(Request $request)
+    {
+        $posts = $this->postRepo->withCriteria([
+            new FilterByCategory($request->category_id),
+            new SortByLatest(),
+            new WithRelations(['author', 'comments'])
+        ])->paginate($request->per_page ?? 15);
+        
+        return PostResource::collection($posts);
+    }
+    
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'category_id' => 'required|exists:categories,id'
+        ]);
+        
+        $post = $this->postRepo->create($data);
+        return new PostResource($post);
+    }
+    
+    // Các phương thức khác...
+}
+```
+
+### Ví dụ 2: Service tương thích với Octane
+
+```php
+namespace App\Services;
+
+use One\Services\Service;
+use One\Contracts\OctaneCompatible;
+use One\Concerns\OctaneCompatibleMethods;
+use App\Repositories\OrderRepository;
+use App\Repositories\PaymentRepository;
+
+class OrderService extends Service implements OctaneCompatible
+{
+    use OctaneCompatibleMethods;
+    
+    protected $orderRepo;
+    protected $paymentRepo;
+    protected static $processedOrders = [];
+    
+    public function __construct(
+        OrderRepository $orderRepo,
+        PaymentRepository $paymentRepo
+    ) {
+        $this->orderRepo = $orderRepo;
+        $this->paymentRepo = $paymentRepo;
+    }
+    
+    public function processOrder(array $data)
+    {
+        // Tạo đơn hàng
+        $order = $this->orderRepo->create([
+            'user_id' => $data['user_id'],
+            'total' => $data['total'],
+            'status' => 'pending'
+        ]);
+        
+        // Xử lý thanh toán
+        $payment = $this->paymentRepo->processPayment(
+            $order, 
+            $data['payment_method']
+        );
+        
+        // Cập nhật trạng thái
+        $this->orderRepo->update($order->id, [
+            'status' => $payment->status === 'completed' 
+                ? 'processing' 
+                : 'failed'
+        ]);
+        
+        // Lưu vào cache tĩnh (sẽ được reset tự động với Octane)
+        static::$processedOrders[$order->id] = true;
+        
+        return $order;
+    }
+    
+    // Ghi đè phương thức từ OctaneCompatibleMethods trait
+    public static function resetStaticState(): void
+    {
+        static::$processedOrders = [];
+    }
+}
+```
+
+## XỬ LÝ LỖI
+
+### Vấn đề phổ biến và giải pháp
+
+1. **Lỗi cài đặt**: Kiểm tra phiên bản PHP và Laravel
+2. **ServiceProvider không được đăng ký**: Thêm vào config/app.php
+3. **Rò rỉ bộ nhớ với Octane**: Triển khai OctaneCompatible
+4. **N+1 Query**: Sử dụng eager loading
+
+### Kỹ thuật debug
+
+One cung cấp các công cụ debug:
+
+```php
+// Log repository query
+$users = $this->userRepo->debug()->all();
+
+// Xem thông tin chi tiết
+logger()->debug($users->getDebugInfo());
+```
+
+## TÀI LIỆU BỔ SUNG
+
+- Tài liệu API: [docs.One.dev](https://docs.One.dev)
+- GitHub: [github.com/One-dev/laravel-One](https://github.com/One-dev/laravel-One)
+- Hỗ trợ: support@One.dev
+
+---
+
+© One Team - Laravel Core Library for rapid development and security 

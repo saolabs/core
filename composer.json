@@ -1,0 +1,55 @@
+{
+    "name": "saola/core",
+    "description": "Saola — Laravel Core Library for building reactive full-stack applications",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "SaoLabs Team",
+            "email": "support@saolabs.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.0|^13.0",
+        "bacon/bacon-qr-code": "^3.0"
+    },
+    "require-dev": {
+        "laravel/octane": "^2.0",
+        "phpunit/phpunit": "^11.0",
+        "orchestra/testbench": "^10.0"
+    },
+    "suggest": {
+        "laravel/ai": "Enable Laravel 13 AI SDK integrations (agents, embeddings, image/audio generation).",
+        "laravel/boost": "Use Boost MCP workflows for AI-assisted upgrades and maintenance."
+    },
+    "autoload": {
+        "psr-4": {
+            "Saola\\Core\\": "src/core/"
+        },
+        "files": [
+            "src/helpers/__loader__.php"
+        ],
+        "classmap": [
+            "src/config/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Saola\\Core\\Providers\\SaolaServiceProvider",
+                "Saola\\Core\\Providers\\SaolaAppServiceProvider"
+            ],
+            "aliases": {
+                "Saola": "Saola\\Core\\Facades\\Saola"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
