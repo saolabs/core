@@ -2,13 +2,13 @@
 
 namespace {{Namespace}}\Masks;
 
-use {{Namespace}}\Models\{{ModuleName}};
+use {{Namespace}}\Models\{{ModelName}};
 
 class {{ModuleName}}Mask
 {
-    protected {{ModuleName}} $model;
+    protected {{ModelName}} $model;
 
-    public function __construct({{ModuleName}} $model)
+    public function __construct({{ModelName}} $model)
     {
         $this->model = $model;
     }

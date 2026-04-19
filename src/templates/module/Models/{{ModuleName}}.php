@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class {{ModuleName}} extends Model
+class {{ModelName}} extends Model
 {
     use HasFactory, SoftDeletes;
 
     /**
      * The table associated with the model.
      */
-    protected $table = '{{module_name}}s';
+    protected $table = '{{model_name}}s';
 
     /**
      * The attributes that are mass assignable.

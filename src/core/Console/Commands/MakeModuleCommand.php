@@ -15,12 +15,15 @@ class MakeModuleCommand extends Command
 
     private string $moduleRouteSlug = '';
 
+    private string $modelName = '';
+
     /**
      * The name and signature of the console command.
      */
     protected $signature = 'make:module
                             {name : The name of the module}
                             {--slug= : Custom route slug/prefix/name for generated routes}
+                            {--model= : Custom model class name used in generated model/repository/mask files}
                             {--ignore=* : Comma-separated or repeated ignore targets: api,admin,web,mask,model,repository,service}
                             {--ignore-api : Skip generating API context/controller/routes}
                             {--ignore-admin : Skip generating admin context/controller/routes}
@@ -55,9 +58,15 @@ class MakeModuleCommand extends Command
         // Determine paths and names
         $targetModule = end($moduleParts); // Last part is the target module
         $moduleSlug = Str::snake($targetModule);
+        $customModelName = trim((string) $this->option('model'));
+        if ($customModelName !== '' && !preg_match('/^[A-Z][a-zA-Z0-9]*$/', $customModelName)) {
+            $this->error("Model name '{$customModelName}' must start with uppercase letter and contain only letters and numbers.");
+            return 1;
+        }
 
         $this->ignoredTargets = $this->resolveIgnoredTargets();
         $this->moduleRouteSlug = $this->resolveRouteSlug($moduleSlug);
+        $this->modelName = $this->resolveModelName($targetModule);
 
         $fullModulePath = 'app/Modules/' . implode('/', $moduleParts);
         $namespacePrefix = 'App\\Modules\\' . implode('\\', $moduleParts);
@@ -72,6 +81,7 @@ class MakeModuleCommand extends Command
 
         $this->info("Creating module '{$displayName}'...");
         $this->line("Route slug: {$this->moduleRouteSlug}");
+        $this->line("Model name: {$this->modelName}");
         if (!empty($this->ignoredTargets)) {
             $this->line('Ignored targets: ' . implode(', ', array_keys($this->ignoredTargets)));
         }
@@ -103,6 +113,9 @@ class MakeModuleCommand extends Command
             }
 
             $targetFile = $this->replacePlaceholders($relativePath, $moduleName, $namespacePrefix);
+            if ($this->modelName !== $moduleName && $targetFile === "Models/{$moduleName}.php") {
+                $targetFile = "Models/{$this->modelName}.php";
+            }
 
             $this->processTemplateFile($templatePath, $relativePath, $modulePath, $targetFile, $moduleName, $namespacePrefix);
         }
@@ -188,6 +201,15 @@ class MakeModuleCommand extends Command
     }
 
     /**
+     * Resolve model class name from --model option or module name.
+     */
+    private function resolveModelName(string $defaultModelName): string
+    {
+        $modelName = trim((string) $this->option('model'));
+        return $modelName === '' ? $defaultModelName : $modelName;
+    }
+
+    /**
      * Determine whether a template path should be skipped.
      */
     private function shouldSkipTemplateFile(string $relativePath): bool
@@ -269,6 +291,7 @@ class MakeModuleCommand extends Command
     private function replacePlaceholders(string $content, string $moduleName, string $namespacePrefix): string
     {
         $moduleSlug = Str::snake($moduleName);
+        $modelSlug = Str::snake($this->modelName);
 
         $providerReplacements = [
             '{{ServiceUseStatement}}' => ($this->ignoredTargets['service'] ?? false)
@@ -301,12 +324,18 @@ class MakeModuleCommand extends Command
             '{{ModuleName}}' => $moduleName,
             '{{module_name}}' => $moduleSlug,
             '{{module_route_name}}' => $this->moduleRouteSlug,
+            '{{ModelName}}' => $this->modelName,
+            '{{model_name}}' => $modelSlug,
             '{{MODULE_NAME}}' => Str::upper($moduleSlug),
             '{{MODULE_ROUTE_NAME}}' => Str::upper($this->moduleRouteSlug),
+            '{{MODEL_NAME}}' => Str::upper($modelSlug),
             '{{Namespace}}' => $namespacePrefix,
         ];
 
-        $replacements = array_merge($replacements, $providerReplacements);
+        // Replace provider-specific blocks first, then resolve nested placeholders they contain.
+        foreach ($providerReplacements as $placeholder => $replacement) {
+            $content = str_replace($placeholder, $replacement, $content);
+        }
 
         foreach ($replacements as $placeholder => $replacement) {
             $content = str_replace($placeholder, $replacement, $content);

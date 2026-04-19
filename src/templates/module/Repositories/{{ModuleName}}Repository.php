@@ -2,15 +2,15 @@
 
 namespace {{Namespace}}\Repositories;
 
-use {{Namespace}}\Models\{{ModuleName}};
+use {{Namespace}}\Models\{{ModelName}};
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class {{ModuleName}}Repository
 {
-    protected {{ModuleName}} $model;
+    protected {{ModelName}} $model;
 
-    public function __construct({{ModuleName}} $model)
+    public function __construct({{ModelName}} $model)
     {
         $this->model = $model;
     }
@@ -42,7 +42,7 @@ class {{ModuleName}}Repository
     /**
      * Get {{module_name}} by ID.
      */
-    public function findById(int $id): ?{{ModuleName}}
+    public function findById(int $id): ?{{ModelName}}
     {
         return $this->model->find($id);
     }
@@ -50,7 +50,7 @@ class {{ModuleName}}Repository
     /**
      * Get {{module_name}} by slug.
      */
-    public function findBySlug(string $slug): ?{{ModuleName}}
+    public function findBySlug(string $slug): ?{{ModelName}}
     {
         return $this->model->where('slug', $slug)->first();
     }
@@ -58,7 +58,7 @@ class {{ModuleName}}Repository
     /**
      * Create a new {{module_name}}.
      */
-    public function create(array $data): {{ModuleName}}
+    public function create(array $data): {{ModelName}}
     {
         return $this->model->create($data);
     }
