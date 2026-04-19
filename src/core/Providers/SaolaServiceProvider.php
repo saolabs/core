@@ -65,13 +65,13 @@ class SaolaServiceProvider extends ServiceProvider
         // Load translations nếu có
         // Cho phép package sử dụng các file ngôn ngữ (lang) của ứng dụng nếu có.
         if (is_dir(base_path('resources/lang'))) {
-            $this->loadTranslationsFrom(base_path('resources/lang'), 'saola');
+            $this->loadTranslationsFrom(base_path('resources/lang'), 'sao');
         }
 
         // Load views nếu có
         // Cho phép package sử dụng các file view của ứng dụng nếu có.
         if (is_dir(base_path('resources/views'))) {
-            $this->loadViewsFrom(base_path('resources/views'), 'saola');
+            $this->loadViewsFrom(base_path('resources/views'), 'sao');
         }
 
         if (!$this->app->runningInConsole()) {
@@ -91,20 +91,21 @@ class SaolaServiceProvider extends ServiceProvider
         // Register console commands
         // Đăng ký command tùy chỉnh cho artisan.
         $this->commands([
+            \Saola\Core\Console\Commands\MakeModuleCommand::class,
             \Saola\Core\Console\Commands\PublishSaolaMigrationsCommand::class,
         ]);
 
         // Publish config file
         // Cho phép người dùng copy file cấu hình mặc định của package ra thư mục config của app để tùy chỉnh.
         $this->publishes([
-            $this->resolvePackageConfigPath() => config_path('saola.php'),
-        ], 'saola-config');
+            $this->resolvePackageConfigPath() => config_path('sao.php'),
+        ], 'sao-config');
 
         // Publish migrations
         // Cho phép người dùng copy các file migration của package ra thư mục database/migrations của app để tùy chỉnh.
         $this->publishes([
             __DIR__ . '/../../database/migrations' => database_path('migrations'),
-        ], 'saola-migrations');
+        ], 'sao-migrations');
     }
 
     protected function registerConfigAliases(): void
@@ -137,7 +138,7 @@ class SaolaServiceProvider extends ServiceProvider
 
     protected function resolvePackageConfigPath(): string
     {
-        foreach (['saola.php', 'sao.php'] as $file) {
+        foreach (['sao.php', 'saola.php'] as $file) {
             $path = __DIR__ . '/../../config/' . $file;
 
             if (is_file($path)) {
