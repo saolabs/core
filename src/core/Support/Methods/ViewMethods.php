@@ -170,6 +170,11 @@ trait ViewMethods
         return $contextManager->resolvePathByAlias($this->context, $this->module, $blade);
     }
 
+    public function resolvePathByRoute(string $route): string{
+        $contextManager = $this->getViewContextManager();
+        return $contextManager->resolvePathByRoute($this->context, $this->module, $route);
+    }
+
     public function getBladeViewRenderConfig(string $blade): array{
         if(preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {
             $alias = strtolower($matches[1]);

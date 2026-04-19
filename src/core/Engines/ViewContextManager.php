@@ -77,23 +77,28 @@ class ViewContextManager implements OctaneCompatible
      */
     public function registerContext(string $name, array $directories, ?array $variables = null): self
     {
+        $basePath = $directories['base'] ?? $name;
+        $basePath = rtrim($basePath, '.');
+
+        // Tạo variables mặc định từ base
+        $defaultVariables = [
+            '__system__' => '_system.',
+            '__base__' => $basePath . '.',
+            '__component__' => ($directories['components'] ?? "{$basePath}.components") . '.',
+            '__template__' => ($directories['templates'] ?? "{$basePath}.templates") . '.',
+            '__partial__' => ($directories['partials'] ?? "{$basePath}.partials") . '.',
+            // '__pagination__' => $basePath . '.pagination.',
+            '__layout__' => ($directories['layouts'] ?? "{$basePath}.layouts") . '.',
+            '__module__' => ($directories['modules'] ?? "{$basePath}.modules") . '.',
+            '__page__' => ($directories['pages'] ?? "{$basePath}.pages") . '.',
+        ];
         // Tự động tạo variables từ directories['base'] nếu không có
         if ($variables === null && !empty($directories)) {
-            $basePath = $directories['base'] ?? $name;
-            $basePath = rtrim($basePath, '.');
-
-            // Tạo variables mặc định từ base
-            $variables = [
-                '__system__' => '_system.',
-                '__base__' => $basePath . '.',
-                '__component__' => ($directories['components'] ?? "{$basePath}.components") . '.',
-                '__template__' => ($directories['templates'] ?? "{$basePath}.templates") . '.',
-                '__partial__' => ($directories['partials'] ?? "{$basePath}.partials") . '.',
-                // '__pagination__' => $basePath . '.pagination.',
-                '__layout__' => ($directories['layouts'] ?? "{$basePath}.layouts") . '.',
-                '__module__' => ($directories['modules'] ?? "{$basePath}.modules") . '.',
-                '__page__' => ($directories['pages'] ?? "{$basePath}.pages") . '.',
-            ];
+            $variables = $defaultVariables;
+        }
+        else{
+            // Merge với variables mặc định (giữ lại các variables tùy chỉnh nếu có)
+            $variables = array_merge($defaultVariables, $variables);
         }
 
         $this->contexts[$name] = [
@@ -243,7 +248,7 @@ class ViewContextManager implements OctaneCompatible
                 $this->contexts[$context]['directories'] ?? [],
                 $directories
             );
-            
+
             // Tự động cập nhật variables từ directories['base'] nếu không có
             if ($variables === null) {
                 $this->regenerateVariablesFromDirectories($context);
@@ -329,7 +334,7 @@ class ViewContextManager implements OctaneCompatible
     {
         // Danh sách type hợp lệ
         $validTypes = ['', 'base', 'modules', 'pages', 'components', 'partials', 'layouts', 'templates'];
-        
+
         // Validate và normalize type
         if (!in_array($type, $validTypes, true)) {
             $type = '';
@@ -350,7 +355,7 @@ class ViewContextManager implements OctaneCompatible
 
         // Trường hợp 3: Lấy directory cho type từ context
         $baseDir = $this->getBaseDirectory($context, $type);
-        
+
         // Nếu không có directory cho type → fallback về base.type
         if (!$baseDir) {
             $baseDir = "{$base}.{$type}";
@@ -383,16 +388,28 @@ class ViewContextManager implements OctaneCompatible
      */
     public function resolvePathByAlias(string $context, string $module, string $blade): string
     {
-        if(preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {
+        if (preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {
             $type = strtolower($matches[1]);
-            if(in_array($type, ['module', 'page', 'base', 'component', 'partial', 'layout', 'template'], true)) {
-                $type.='s';
+            if (in_array($type, ['module', 'page', 'base', 'component', 'partial', 'layout', 'template'], true)) {
+                $type .= 's';
             }
             $bladeName = $matches[3];
 
             return $this->resolvePath($context, $module, $bladeName, $type);
         }
 
+        return $this->resolvePath($context, $module, $blade, '');
+    }
+
+    public function resolvePathByRoute(string $context, string $route): string
+    {
+        $parts = explode('.', $route);
+        $ctxRoute = array_shift($parts);
+        $blade = array_pop($parts);
+        $module = implode('.', $parts);
+        if ($ctxRoute === $context && view()->exists($path = $this->resolvePath($context, $module, $blade))) {
+            return $path;
+        }
         return $this->resolvePath($context, $module, $blade, '');
     }
 
@@ -469,7 +486,7 @@ class ViewContextManager implements OctaneCompatible
 
         // Lấy variables từ context (KHÔNG được ghi đè)
         $variables = $this->getContextVariables($context);
-        
+
         if (!$variables) {
             // Fallback nếu context chưa được đăng ký
             $variables = [
@@ -602,7 +619,7 @@ class ViewContextManager implements OctaneCompatible
     {
         // KHÔNG reset contexts - giữ lại để có thể update động
         // Contexts là persistent state, không phải request-specific state
-        
+
         // Reset shared data sau mỗi request
         // $this->sharedData = [];
     }
@@ -617,4 +634,3 @@ class ViewContextManager implements OctaneCompatible
         return [];
     }
 }
-
