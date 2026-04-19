@@ -14,7 +14,7 @@ class HydrationDirectiveService
      */
     public function registerDirectives(): void
     {
-        $config = config('one.hydration.keys');
+        $config = config('saola.hydration.keys', config('sao.hydration.keys'));
         $this->keys = is_array($config) ? $config : [];
 
         // Register @hydrate directive (primary)
@@ -37,7 +37,7 @@ class HydrationDirectiveService
      * @hydrate($value)              -> data-hydrate="<?php echo $__VIEW_ID__; ?>-<?php echo $value ;?>"
      * @hydrate('test')              -> data-hydrate="<?php echo $__VIEW_ID__; ?>-<?php echo 'test' ;?>"
      * @hydrate($abc . 'def')        -> data-hydrate="<?php echo $__VIEW_ID__; ?>-<?php echo $abc . 'def' ;?>"
-     * @hydrate($value, $abc. 'def') -> treats entire expression as one (防 multi-param misuse)
+     * @hydrate($value, $abc. 'def') -> treats entire expression as Saola (multi-param misuse)
      */
     public function compileHydrationDirective($expression)
     {

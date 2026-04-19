@@ -12,14 +12,14 @@ class PublishSaolaMigrationsCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'one:publish-migrations {--force : Overwrite existing files}';
+    protected $signature = 'sao:publish-migrations {--force : Overwrite existing files}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Publish One Core migrations to your application';
+    protected $description = 'Publish Saola Core migrations to your application';
 
     /**
      * Execute the console command.

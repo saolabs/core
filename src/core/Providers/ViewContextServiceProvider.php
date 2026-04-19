@@ -16,6 +16,8 @@ use Saola\Core\Engines\ViewContextManager;
  */
 class ViewContextServiceProvider extends ServiceProvider
 {
+    protected static bool $booted = false;
+
     /**
      * Register services
      */
@@ -23,9 +25,6 @@ class ViewContextServiceProvider extends ServiceProvider
     {
         // Đăng ký ViewContextService
         $this->app->singleton(ViewContextService::class, fn() => new ViewContextService());
-        
-        // Đăng ký ViewContextManager như singleton
-        $this->app->singleton(ViewContextManager::class, fn() => new ViewContextManager());
     }
 
     /**
@@ -33,6 +32,12 @@ class ViewContextServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (self::$booted) {
+            return;
+        }
+
+        self::$booted = true;
+
         $viewContextManager = $this->app->make(ViewContextManager::class);
         
         // Đăng ký các contexts với directories và variables

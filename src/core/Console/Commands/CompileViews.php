@@ -3,6 +3,8 @@
 namespace Saola\Core\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
+use Saola\Core\View\Compilers\BladeToSpaCompiler;
 
 use Symfony\Component\Finder\Finder;
 
@@ -19,9 +21,16 @@ class CompileViews extends Command
                             {--sourcemap : Generate source maps}';
 
     /**
+     * Backward-compatible aliases.
+     *
+     * @var array<int, string>
+     */
+    protected $aliases = ['saola:compile'];
+
+    /**
      * The console command description.
      */
-    protected $description = 'Compile Blade views to TypeScript for OneJS framework';
+    protected $description = 'Compile Blade views to TypeScript for Saola';
 
     /**
      * Execute the console command.
@@ -32,7 +41,7 @@ class CompileViews extends Command
         $watch = $this->option('watch');
         $force = $this->option('force');
         
-        $this->info("🚀 OneJS Compiler v2.0");
+        $this->info('Saola compiler');
         $this->newLine();
         
         if ($watch) {
@@ -49,7 +58,7 @@ class CompileViews extends Command
      */
     protected function compileOnce(string $context, bool $force): void
     {
-        $config = config('one.compiler');
+        $config = config('saola.compiler', config('one.compiler', []));
         $contexts = $context === 'all' 
             ? array_keys($config)
             : [$context];
@@ -70,7 +79,7 @@ class CompileViews extends Command
             // Clean output directory first
             $this->cleanOutputDirectory($ctxConfig['output']);
             
-            $compiler = new BladeCompiler($ctxConfig);
+            $compiler = new BladeToSpaCompiler();
             
             // Find all blade files
             $files = $this->findBladeFiles($ctxConfig['views']);
@@ -95,24 +104,16 @@ class CompileViews extends Command
                     }
                     
                     // Compile
-                    $result = $compiler->compileFile($file->getPathname(), [
-                        'context' => $ctx,
-                        'minify' => $this->option('minify'),
-                        'sourcemap' => $this->option('sourcemap'),
-                    ]);
+                    $result = $this->compileBladeFile($compiler, $file->getPathname());
                     
                     // Write output
-                    $this->writeOutput($outputPath, $result->getCode());
-                    
-                    if ($this->option('sourcemap') && $result->hasSourceMap()) {
-                        $this->writeOutput($outputPath . '.map', $result->getSourceMap());
-                    }
+                    $this->writeOutput($outputPath, $result['code']);
                     
                     // Add to registry
                     $this->addToRegistry($viewRegistry, $relativePath, $outputPath, $ctxConfig['output']);
                     
                     $compiled++;
-                    $totalTime += $result->getCompilationTime();
+                    $totalTime += $result['compilationTime'];
                     
                 } catch (\Exception $e) {
                     $errors++;
@@ -149,13 +150,12 @@ class CompileViews extends Command
         $this->info("👀 Watching for changes... (Ctrl+C to stop)");
         $this->newLine();
         
-        $lastCheck = time();
         $fileHashes = [];
         
         while (true) {
             usleep(1000000); // 1 second
             
-            $config = config('one.compiler');
+            $config = config('saola.compiler', config('one.compiler', config('sao.compiler', [])));
             $contexts = $context === 'all' 
                 ? array_keys($config)
                 : [$context];
@@ -176,14 +176,14 @@ class CompileViews extends Command
                         $this->info("[" . date('H:i:s') . "] Compiling: {$file->getFilename()}");
                         
                         try {
-                            $compiler = new BladeCompiler($ctxConfig);
-                            $result = $compiler->compileFile($path, ['context' => $ctx]);
+                            $compiler = new BladeToSpaCompiler();
+                            $result = $this->compileBladeFile($compiler, $path);
                             
                             $relativePath = $this->getRelativePath($path, $ctxConfig['views']);
                             $outputPath = $this->getOutputPath($relativePath, $ctxConfig['output']);
-                            $this->writeOutput($outputPath, $result->getCode());
+                            $this->writeOutput($outputPath, $result['code']);
                             
-                            $this->info("  ✓ Done in " . round($result->getCompilationTime() * 1000, 2) . "ms");
+                            $this->info("  ✓ Done in " . round($result['compilationTime'] * 1000, 2) . "ms");
                         } catch (\Exception $e) {
                             $this->error("  ✗ Error: {$e->getMessage()}");
                         }
@@ -281,6 +281,22 @@ class CompileViews extends Command
         }
         
         file_put_contents($path, $content);
+    }
+
+    /**
+     * Compile a Blade file with the available compiler implementation.
+     *
+     * @return array{code: string, compilationTime: float}
+     */
+    protected function compileBladeFile(BladeToSpaCompiler $compiler, string $path): array
+    {
+        $startedAt = microtime(true);
+        $bladeContent = File::get($path);
+
+        return [
+            'code' => $compiler->compile($bladeContent),
+            'compilationTime' => microtime(true) - $startedAt,
+        ];
     }
     
     /**

@@ -34,24 +34,24 @@ trait HasTimestamps
     /**
      * Get the user who created the record
      */
-    public function creator()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
+    // public function creator()
+    // {
+    //     return $this->belongsTo(User::class, 'created_by');
+    // }
 
-    /**
-     * Get the user who last updated the record
-     */
-    public function updater()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
+    // /**
+    //  * Get the user who last updated the record
+    //  */
+    // public function updater()
+    // {
+    //     return $this->belongsTo(User::class, 'updated_by');
+    // }
 
-    /**
-     * Get the user who deleted the record
-     */
-    public function deleter()
-    {
-        return $this->belongsTo(User::class, 'deleted_by');
-    }
+    // /**
+    //  * Get the user who deleted the record
+    //  */
+    // public function deleter()
+    // {
+    //     return $this->belongsTo(User::class, 'deleted_by');
+    // }
 } 

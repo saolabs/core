@@ -19,7 +19,6 @@ trait ResponseMethods
      * - x-one-response: json
      * - Accept: application/json
      * 
-     * @param Request $request Request object
      * @param array $data Dữ liệu để truyền vào view hoặc trả về JSON
      * @param string|null $bladePath Đường dẫn blade (ví dụ: 'users.index'). Nếu null, chỉ trả JSON
      * @param array $options Các tùy chọn:
@@ -31,8 +30,11 @@ trait ResponseMethods
      *                      - includeView: Include view HTML trong JSON response (mặc định: true)
      * @return View|JsonResponse
      */
-    public function response(Request $request, array $data = [], ?string $bladePath = null, array $options = [])
+    public function response(array $data = [], ?string $bladePath = null, array $options = [])
     {
+        $request = request();
+        $route = $request->route();
+        $routeName = $route ? $route->getName() : null;
         // Merge options với giá trị mặc định
         $status = $options['status'] ?? 200;
         $headers = $options['headers'] ?? [];
@@ -40,6 +42,9 @@ trait ResponseMethods
         $forceJson = $options['forceJson'] ?? false;
         $forceView = $options['forceView'] ?? false;
         $includeView = $options['includeView'] ?? true;
+        if(!$bladePath && !$forceJson && $routeName && view()->exists($routeName)) {
+            $bladePath = $routeName;
+        }
         
 
         // Kiểm tra Accept header (Laravel built-in method)
@@ -190,8 +195,8 @@ trait ResponseMethods
      * @param string|null $bladePath
      * @return View|JsonResponse
      */
-    public function autoResponse(Request $request, array $data = [], ?string $bladePath = null)
+    public function autoResponse(array $data = [], ?string $bladePath = null)
     {
-        return $this->response($request, $data, $bladePath);
+        return $this->response($data, $bladePath);
     }
 }

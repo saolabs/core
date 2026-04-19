@@ -42,8 +42,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Saola\\Core\\Providers\\SaolaServiceProvider",
-                "Saola\\Core\\Providers\\SaolaAppServiceProvider"
+                "Saola\\Core\\Providers\\SaolaServiceProvider"
             ],
             "aliases": {
                 "Saola": "Saola\\Core\\Facades\\Saola"

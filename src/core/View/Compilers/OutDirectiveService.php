@@ -41,9 +41,9 @@ class OutDirectiveService
 
         // Build output wrapper. Escape $__VIEW_PATH__ and $__VIEW_ID__ dollar signs.
         $wrapper  = '<?php $__OC_TASK_ID__ = uniqid(); $__CURRENT_OC_INDEX__ = $__helper->addOutputComponent($__VIEW_PATH__, $__VIEW_ID__, $__OC_TASK_ID__, "'.$subscribe.'"); ?>';
-        $wrapper .= '<!-- [one:output id="<?php echo $__OC_TASK_ID__; ?>"] -->';
+        $wrapper .= '<!-- [sao:output id="<?php echo $__OC_TASK_ID__; ?>"] -->';
         $wrapper .= '<?php echo ' . $content . '; ?>';
-        $wrapper .= '<!-- [/one:output] -->';
+        $wrapper .= '<!-- [/sao:output] -->';
 
         return $wrapper;
     }

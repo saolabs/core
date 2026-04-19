@@ -23,6 +23,8 @@ class ReactiveDirectiveService
         "for" => 'fo',                           // For loop Marker
         "forin" => 'fi',                         // For-in loop Marker
         "foreach" => 'fe',                       // For-each loop Marker
+        "forelse" => 'fls',                      // Forelse loop Marker
+        "each" => 'ea',                          // Each loop Marker
         "if" => 'if',                            // If condition Marker
         "switch" => 'sw',                        // Switch condition Marker
         "while" => 'wh',                         // While loop Marker

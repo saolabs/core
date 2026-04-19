@@ -3,14 +3,14 @@
 use Saola\Core\Http\Client;
 use Saola\Core\Promise\Promise;
 
-if (!function_exists('onePipe')) {
+if (!function_exists('saoPipe')) {
     /**
      * Pipe function
      * @param object<T> $object
      * @param callable<T, T> $callback
      * @return mixed
      */
-    function onePipe($object, $callback, $default = null)
+    function saoPipe($object, $callback, $default = null)
     {
         $isCallable = is_callable($callback);
         if ($isCallable) {
@@ -21,11 +21,11 @@ if (!function_exists('onePipe')) {
         return $default;
     }
 
-    function onePipeChain($object, $callbacks, $default = null)
+    function saoPipeChain($object, $callbacks, $default = null)
     {
         $result = $object;
         foreach ($callbacks as $callback) {
-            $result = onePipe($result, $callback, $default);
+            $result = saoPipe($result, $callback, $default);
         }
         return $result;
     }
@@ -52,14 +52,14 @@ if (!function_exists('promiseAll')) {
     }
 }
 
-if (!function_exists('one')) {
+if (!function_exists('sao')) {
     /**
      * Thực thi điều gì đó
      *
      * @param string<class-string>|Promise|mixed $t
      * @return Promise|mixed
      */
-    function one($t)
+    function sao($t)
     {
         if (($t instanceof Promise) || is_a($t, Promise::class)) {
             return $t->value();
