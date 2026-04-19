@@ -11,11 +11,9 @@ abstract class ModuleServiceProvider extends ServiceProvider
      */
     abstract function routes();
 
-    public function booting(Closure $callback)
+    public function boot()
     {
-        if (method_exists($this, 'routes')) {
-            $this->routes();
-        }
-        return parent::booting($callback);
+        $this->routes();
     }
+
 }
