@@ -95,23 +95,56 @@ class ViewContextManager implements OctaneCompatible
         // Tự động tạo variables từ directories['base'] nếu không có
         if ($variables === null && !empty($directories)) {
             $variables = $defaultVariables;
-        }
-        else{
+        } else {
             // Merge với variables mặc định (giữ lại các variables tùy chỉnh nếu có)
             $variables = array_merge($defaultVariables, $variables);
         }
-
-        $this->contexts[$name] = [
-            'directories' => $directories,
-            'variables' => $variables ?? [],
-        ];
-
+        if (isset($this->contexts[$name])) {
+            // Nếu context đã tồn tại, merge directories và variables
+            $this->contexts[$name]['directories'] = array_merge(
+                $this->contexts[$name]['directories'] ?? [],
+                $directories
+            );
+            $this->contexts[$name]['variables'] = array_merge(
+                $this->contexts[$name]['variables'] ?? [],
+                $variables
+            );
+        } else {
+            // Nếu context chưa tồn tại, tạo mới
+            $this->contexts[$name] = [
+                'directories' => $directories,
+                'variables' => $variables ?? [],
+                'routeViews' => [], // Lưu cache route => view path nếu cần
+            ];
+        }
         // Set context đầu tiên làm mặc định nếu chưa có
         if (!$this->defaultContext) {
             $this->defaultContext = $name;
         }
 
         return $this;
+    }
+
+    public function registerContextViewByRoute(string $context, string $route, string $viewPath, ?string $shortcut = null): self
+    {
+        if (isset($this->contexts[$context])) {
+            $this->contexts[$context]['routeViews'][$route] = [
+                'view' => $viewPath,
+                'shortcut' => $shortcut,
+            ];
+        }
+        return $this;
+    } 
+
+    public function getViewPathByRoute(string $context, string $route, string $type = 'view'): ?string
+    {
+        if (!isset($this->contexts[$context]) || !isset($this->contexts[$context]['routeViews'][$route])) {
+            return null;
+        }
+        if($type === 'shortcut' && isset($this->contexts[$context]['routeViews'][$route]['shortcut'])) {
+            return $this->contexts[$context]['routeViews'][$route]['shortcut'];
+        }
+        return $this->contexts[$context]['routeViews'][$route]['view'] ?? null;
     }
 
     /**
@@ -404,16 +437,96 @@ class ViewContextManager implements OctaneCompatible
     public function resolvePathByRoute(string $context, string $route): string
     {
         $parts = explode('.', $route);
+        $count = count($parts);
+
+
+        if ($count < 2) {
+            // Nếu route không có đủ phần (ít nhất phải có context và blade), fallback về base
+            return '';
+        }
         $ctxRoute = array_shift($parts);
         $blade = array_pop($parts);
-        $module = implode('.', $parts);
-        if ($ctxRoute === $context && view()->exists($path = $this->resolvePath($context, $module, $blade))) {
-            return $path;
+        if ($ctxRoute !== $context) {
+            // Nếu context trong route không khớp với context hiện tại, fallback về base
+            return '';
         }
-        return $this->resolvePath($context, $module, $blade, '');
+        if ($count === 2) {
+            if (view()->exists($path = $this->resolvePath($context, '', $blade, 'pages'))) {
+                return '@PAGE:' . $blade;
+            }
+            if (view()->exists($path = $this->resolvePath($context, '', $blade, 'base'))) {
+                return '@BASE:' . $blade;
+            }
+            return '';
+        }
+
+        $module = implode('.', $parts);
+
+        if (view()->exists($path = $this->resolvePath($context, $module, $blade, 'modules'))) {
+            return '@MODULE:' . ($module . '.' . $blade);
+        }
+
+        $p = $module . '.' . $blade;
+        if (view()->exists($path = $this->resolvePath($context, '', $p, 'pages'))) {
+            return '@PAGE:' . $p;
+        }
+        if (view()->exists($path = $this->resolvePath($context, '', $p, 'base'))) {
+            return '@BASE:' . $p;
+        }
+        return '';
     }
 
 
+    public function routeToViewPathConfig(string $context, string $route): array
+    {
+        $parts = explode('.', $route);
+        $count = count($parts);
+
+
+        if ($count < 2) {
+            // Nếu route không có đủ phần (ít nhất phải có context và blade), fallback về base
+            return [];
+        }
+        $ctxRoute = array_shift($parts);
+        $blade = array_pop($parts);
+        if ($ctxRoute !== $context) {
+            // Nếu context trong route không khớp với context hiện tại, fallback về base
+            return [];
+        }
+        if ($count === 2) {
+            if (view()->exists($path = $this->resolvePath($context, '', $blade, 'pages'))) {
+                return [
+                    'shortcut' => '@PAGE:' . $blade,
+                    'view' => $path,
+                ];
+            }
+            if (view()->exists($path = $this->resolvePath($context, '', $blade, 'base'))) {
+                return [
+                    'shortcut' => '@BASE:' . $blade,
+                    'view' => $path,
+                ];
+            }
+            return [];
+        }
+
+        $module = implode('.', $parts);
+
+        if (view()->exists($path = $this->resolvePath($context, $module, $blade, 'modules'))) {
+            return [
+                'shortcut' => '@MODULE:' . ($module . '.' . $blade),
+                'view' => $path,
+            ];
+        }
+
+        $p = $module . '.' . $blade;
+        if (view()->exists($path  = $this->resolvePath($context, '', $p, 'pages'))) {
+            return ['shortcut' => '@PAGE:' . $p, 'view' => $path];
+        }
+        if (view()->exists($path = $this->resolvePath($context, '', $p, 'base'))) {
+            return ['shortcut' => '@BASE:' . $p, 'view' => $path];
+        }
+        return [];
+    }
     /**
      * Share data cho một context
      * 

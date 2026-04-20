@@ -172,7 +172,7 @@ trait ViewMethods
 
     public function resolvePathByRoute(string $route): string{
         $contextManager = $this->getViewContextManager();
-        return $contextManager->resolvePathByRoute($this->context, $this->module, $route);
+        return ($shortcut = $contextManager->resolvePathByRoute($this->context, $route)) ? $shortcut : '';
     }
 
     public function getBladeViewRenderConfig(string $blade): array{

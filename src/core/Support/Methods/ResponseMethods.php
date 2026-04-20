@@ -42,14 +42,17 @@ trait ResponseMethods
         $forceJson = $options['forceJson'] ?? false;
         $forceView = $options['forceView'] ?? false;
         $includeView = $options['includeView'] ?? true;
-        if(!$bladePath && !$forceJson && $routeName && view()->exists($routeName)) {
-            $bladePath = $routeName;
+        
+        $wantsJson = $this->wantsJsonResponse($request);
+
+        if(!$bladePath && !$forceJson && !$wantsJson && $routeName && ($shortcut = $this->resolvePathByRoute($routeName))) {
+            $bladePath = $shortcut;
         }
         
 
         // Kiểm tra Accept header (Laravel built-in method)
         $wantsJson = (
-            $this->wantsJsonResponse($request) || 
+            $wantsJson || 
             !$bladePath || $forceJson
         ); 
         if ($wantsJson) {

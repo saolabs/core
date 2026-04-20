@@ -4,6 +4,7 @@ namespace Saola\Core\Routing;
 
 use Saola\Core\Support\SPA;
 use Illuminate\Support\Facades\Route;
+use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Routing\System;
 
 trait RouteMethods
@@ -232,18 +233,18 @@ trait RouteMethods
         if (isset($this->data['missing'])) {
             $laravelRoute = $laravelRoute->missing($this->data['missing']);
         }
-        
+
         // Chỉ lấy URI và name khi có HTTP context (tránh lỗi khi chạy artisan commands)
         // Kiểm tra xem app có đang chạy trong HTTP context không
-        $hasHttpContext = app()->runningInConsole() === false || 
-                         (app()->bound('request') && app('request') !== null);
-        
+        $hasHttpContext = app()->runningInConsole() === false ||
+            (app()->bound('request') && app('request') !== null);
+
         if ($hasHttpContext) {
             try {
                 $routeUri = $laravelRoute->uri();
                 $routeName = $laravelRoute->getName();
-                if($routeName) {
-                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath()??$routeName);
+                if ($routeName) {
+                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath($routeName));
                 }
             } catch (\Throwable $e) {
                 // Bỏ qua lỗi nếu không thể lấy URI (ví dụ: khi chạy artisan commands)
@@ -252,20 +253,21 @@ trait RouteMethods
         } else {
             // Khi không có HTTP context, vẫn cố gắng lấy route name từ data nếu có
             $routeName = $this->getFullRouteName();
-            if($routeName && $this->data['uri']) {
+            if ($routeName && $this->data['uri']) {
                 // Sử dụng URI từ data thay vì từ Laravel route object
-                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath()??$routeName);
+                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath($routeName));
             }
         }
-        
+
         return $laravelRoute;
     }
 
 
 
 
-    public function generateAdminRoute(){
-        if(!($this->isModule() || $this->isContext() || $this->isChannel())){
+    public function generateAdminRoute()
+    {
+        if (!($this->isModule() || $this->isContext() || $this->isChannel())) {
             throw new \Exception('Generate admin route only for module, context or channel');
         }
         $this->get('/', 'viewIndexPage')->name('');
@@ -280,7 +282,6 @@ trait RouteMethods
         $this->post('delete', 'delete')->name('delete');
         $this->post('restore', 'restore')->name('restore');
         $this->post('move-to-trash', 'moveToTrash')->name('move-to-trash');
-
     }
 
     /**
@@ -310,7 +311,7 @@ trait RouteMethods
      */
     public function generateRESTfulRoute(array $options = [])
     {
-        if(!($this->isModule() || $this->isContext() || $this->isChannel())){
+        if (!($this->isModule() || $this->isContext() || $this->isChannel())) {
             throw new \Exception('Generate RESTful route only for module, context or channel');
         }
         $only = $options['only'] ?? null;
@@ -320,7 +321,7 @@ trait RouteMethods
         $withoutNames = $options['withoutNames'] ?? false;
 
         // Helper function để kiểm tra route có được tạo không
-        $shouldInclude = function($routeName) use ($only, $except) {
+        $shouldInclude = function ($routeName) use ($only, $except) {
             if ($only !== null && !in_array($routeName, $only)) {
                 return false;
             }
@@ -328,16 +329,16 @@ trait RouteMethods
         };
 
         // Helper function để set route name (nếu cần)
-        $setRouteName = function($name) use ($namePrefix, $withoutNames) {
+        $setRouteName = function ($name) use ($namePrefix, $withoutNames) {
             if ($withoutNames) {
                 return ''; // Không set name
             }
-            
+
             // Nếu có custom prefix, sử dụng nó
             if ($namePrefix !== null) {
                 return $namePrefix . '.' . $name;
             }
-            
+
             // Nếu không có prefix, route name sẽ tự động được prefix bởi parent route
             // (xử lý trong pushLaravelRoute method - line 194)
             return $name;
@@ -400,37 +401,46 @@ trait RouteMethods
         return $this;
     }
 
-    protected function getComponentPath(){
+    protected function getComponentPath($route = null)
+    {
         $parentModule = $this->data['parent_module'] ?? null;
         $currentModule = $this->data['module'] ?? null;
         $base = $this->data['context'] ?? '';
-
         $blade = $this->data['view'] ?? null;
-        if(!$blade){
-            return null;
+        $vcm = app(ViewContextManager::class);
+        if (!$blade) {
+            if ($route && ($b = $vcm->routeToViewPathConfig($this->data['context'], $route))) {
+                $blade = $b['shortcut'] ?? null;
+                if ($b['view'] ?? null) {
+                    $vcm->registerContextViewByRoute($this->data['context'], $route, $b['view'] ?? null, $b['shortcut'] ?? null);
+                }
+                return $b['view'] ?? null;
+            } else {
+                return null;
+            }
         }
-        if(str_starts_with($blade, '@MODULE:')){
+        if (str_starts_with($blade, '@MODULE:')) {
             $view = str_replace('@MODULE:', '', $blade);
             $base = ($base ? $base . '.' : '') . 'modules';
-            if($currentModule && $parentModule){
+            if ($currentModule && $parentModule) {
                 $base = $base . '.' . $parentModule . '.' . $currentModule;
+            } else {
+                $base = $base . '.' . $parentModule . $currentModule;
             }
-            else{
-                $base = $base . '.' . $parentModule.$currentModule;
-            }
+            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $view, $blade);
             return $base . '.' . $view;
-        }
-        else if(str_starts_with($blade, '@PAGE:')){
+        } else if (str_starts_with($blade, '@PAGE:')) {
             $view = str_replace('@PAGE:', '', $blade);
             $base = ($base ? $base . '.' : '') . 'pages';
-            
+
+            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $view, $blade);
             return $base . '.' . $view;
-        }
-        else if(str_starts_with($blade, '@BASE:')){
-            $view = str_replace('@BASE:', $base.'.', $blade);
+        } else if (str_starts_with($blade, '@BASE:')) {
+            $view = str_replace('@BASE:', $base . '.', $blade);
+            $vcm->registerContextViewByRoute($this->data['context'], $route, $view, $blade);
             return $view;
-        }
-        else if($base){
+        } else if ($base) {
+            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $blade, null);
             return $base . '.' . $blade;
         }
         return $blade;
@@ -504,23 +514,23 @@ trait RouteMethods
                 $this->data[$params[0]] = $arguments[0];
                 $this->data[$params[1]] = $arguments[1];
             }
-        } 
+        }
         // check if route name
         else if (in_array($name, ['as', 'route_name', 'routename', 'nickname', 'name'])) {
             if (!is_string($arguments[0])) {
                 throw new \Exception($name . ' must be a string');
             }
             $this->data['as'] = $arguments[0];
-        } 
-        
+        }
+
         // check if display name
         else if (in_array($name, ['display', 'display_name', 'displayname', 'display_name'])) {
             if (!is_string($arguments[0])) {
                 throw new \Exception($name . ' must be a string');
             }
             $this->data['display_name'] = $arguments[0];
-        } 
-        
+        }
+
         // check if title, description, uri, method, prefix, controller, slug
         else if (in_array($name, ['title', 'description', 'uri', 'method', 'prefix', 'controller', 'slug'])) {
             if (!is_string($arguments[0])) {
@@ -528,24 +538,24 @@ trait RouteMethods
             }
 
             $this->data[$name] = $arguments[0] ?? $this->data[$name];
-        } 
-        
+        }
+
         // check if action
         else if (in_array($name, ['action'])) {
             if (!(is_string($arguments[0]) || is_callable($arguments[0])) || (is_array($arguments[0]) && count($arguments[0]) == 2 && is_string($arguments[0][1]))) {
                 throw new \Exception('Action must be a string or callable');
             }
             $this->data[$name] = $arguments[0];
-        } 
-        
+        }
+
         // check if middleware or permission
         else if (in_array($name, ['middleware', 'permission'])) {
             if (!is_string($arguments[0]) && !is_array($arguments[0])) {
                 throw new \Exception($name . ' must be a string or array');
             }
             $this->data[$name] = $t == 1 ? $arguments[0] : $arguments;
-        } 
-        
+        }
+
         // check if priority
         else if (in_array($name, ['priority'])) {
             if ($t < 1 || !is_int($arguments[0])) {
@@ -553,8 +563,8 @@ trait RouteMethods
             } else {
                 $this->data[$name] = $arguments[0];
             }
-        } 
-        
+        }
+
         // check if view
         else if (in_array($name, ['view'])) {
             if ($t < 1 || !is_string($arguments[0])) {
@@ -562,8 +572,8 @@ trait RouteMethods
             } else {
                 $this->data[$name] = $arguments[0];
             }
-        } 
-        
+        }
+
         // check if view module
         else if (in_array($name, ['viewmodule'])) {
             if ($t < 1 || !is_string($arguments[0])) {
@@ -571,8 +581,8 @@ trait RouteMethods
             } else {
                 $this->data['view'] = '@MODULE:' . $arguments[0];
             }
-        } 
-        
+        }
+
         // check if view page
         else if (in_array($name, ['viewpage'])) {
             if ($t < 1 || !is_string($arguments[0])) {
@@ -580,8 +590,8 @@ trait RouteMethods
             } else {
                 $this->data['view'] = '@PAGE:' . $arguments[0];
             }
-        } 
-        
+        }
+
         // if the method is not a route attribute
         else {
             return false;
@@ -815,17 +825,16 @@ trait RouteMethods
         if (is_string($callback) && (!array_key_exists('prefix', $groupData) || $groupData['prefix'] == null || $groupData['prefix'] == '')) {
             $groupData['prefix'] = $callback;
         }
-        
+
 
         $callFn = is_callable($callback) ? $callback : (is_callable($data) ? $data : null);
 
         $parentModule = $this->data['parent_module'] ?? null;
         $currentModule = $this->data['module'] ?? null;
-        if($currentModule && $parentModule){
+        if ($currentModule && $parentModule) {
             $groupData['parent_module'] = $parentModule . '.' . $currentModule;
-        }
-        else{
-            $groupData['parent_module'] = $parentModule.$currentModule;
+        } else {
+            $groupData['parent_module'] = $parentModule . $currentModule;
         }
         $groupData['module'] = $groupData['slug'] ?? null;
 
@@ -910,11 +919,10 @@ trait RouteMethods
         $groupData['context'] = $this->data['context'];
         $parentModule = $this->data['parent_module'] ?? null;
         $currentModule = $this->data['module'] ?? null;
-        if($currentModule && $parentModule){
+        if ($currentModule && $parentModule) {
             $groupData['parent_module'] = $parentModule . '.' . $currentModule;
-        }
-        else{
-            $groupData['parent_module'] = $parentModule.$currentModule;
+        } else {
+            $groupData['parent_module'] = $parentModule . $currentModule;
         }
         // $groupData['parent_module'] = $this;
         if (is_string($data)) {
@@ -930,7 +938,7 @@ trait RouteMethods
         }
 
         $groupData['module'] = $groupData['slug'] ?? null;
-        if(array_key_exists('slug', $groupData) && $groupData['slug'] && (!array_key_exists('as', $groupData) || $groupData['as'] == null || $groupData['as'] == '')){
+        if (array_key_exists('slug', $groupData) && $groupData['slug'] && (!array_key_exists('as', $groupData) || $groupData['as'] == null || $groupData['as'] == '')) {
             $groupData['as'] = $groupData['slug'];
         }
         $callFn = is_callable($callback) ? $callback : (is_callable($data) ? $data : null);
