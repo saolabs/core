@@ -5,6 +5,7 @@ namespace Saola\Core\Support\Methods;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Saola\Core\Engines\ViewContextManager;
 
 trait ResponseMethods
 {
@@ -45,8 +46,9 @@ trait ResponseMethods
         
         $wantsJson = $this->wantsJsonResponse($request);
 
-        if(!$bladePath && !$forceJson && !$wantsJson && $routeName && ($shortcut = $this->resolvePathByRoute($routeName))) {
-            $bladePath = $shortcut;
+        if(!$bladePath && !$forceJson && !$wantsJson && $routeName) {
+            $bladeConfig = app(ViewContextManager::class)->routeToViewPathConfig($this->context, $routeName);
+            $bladePath = $bladeConfig['view'] ?? null;
         }
         
 
