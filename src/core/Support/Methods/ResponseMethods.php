@@ -150,6 +150,11 @@ trait ResponseMethods
         if ($oneResponse && strtolower(trim($oneResponse)) === 'json') {
             return true;
         }
+        // Kiểm tra header x-sao-response (case-insensitive)
+        $saoResponse = $this->getHeaderCaseInsensitive($request, 'x-sao-response');
+        if ($saoResponse && strtolower(trim($saoResponse)) === 'json') {
+            return true;
+        }
 
 
         return false;
