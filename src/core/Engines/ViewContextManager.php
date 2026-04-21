@@ -367,13 +367,17 @@ class ViewContextManager implements OctaneCompatible
     public function resolvePath(string $context, string $module, string $blade, string $type = ''): string
     {
         // Danh sách type hợp lệ
-        $validTypes = ['', 'base', 'modules', 'pages', 'components', 'partials', 'layouts', 'templates', 'route'];
+        $validTypes = ['', 'base', 'modules', 'pages', 'components', 'partials', 'layouts', 'templates', 'route', 'raw'];
 
         // Validate và normalize type
         if (!in_array($type, $validTypes, true)) {
             $type = '';
         }
         if($type === 'route') {
+            return $blade;
+        }
+
+        if($type === 'raw') {
             return $blade;
         }
         // Lấy base directory của context (dùng nhiều lần nên cache lại)

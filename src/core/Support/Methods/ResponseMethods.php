@@ -43,27 +43,30 @@ trait ResponseMethods
         $forceJson = $options['forceJson'] ?? false;
         $forceView = $options['forceView'] ?? false;
         $includeView = $options['includeView'] ?? true;
-        
+
         $wantsJson = $this->wantsJsonResponse($request);
 
-        if(!$bladePath && !$forceJson && !$wantsJson && $routeName) {
+        if (!$bladePath && !$forceJson && !$wantsJson && $routeName) {
             $bladeConfig = app(ViewContextManager::class)->routeToViewPathConfig($this->context, $routeName);
-            $bladePath = $bladeConfig['shortcut'] ?? null;
+            // $bladePath = $bladeConfig['shortcut'] ?? null;
+            if ($bladeConfig && ($bladeConfig['view'] ?? null)) {
+                $bladePath = '@RAW:' . ($bladeConfig['view'] ?? null);
+            }
         }
-        
+
 
         // Kiểm tra Accept header (Laravel built-in method)
         $wantsJson = (
-            $wantsJson || 
+            $wantsJson ||
             !$bladePath || $forceJson
-        ); 
+        );
         if ($wantsJson) {
             return $this->jsonResponse($data, $status, $headers, $jsonOptions, $bladePath);
         }
-        
+
         return $this->renderResponse($bladePath, $data);
     }
-    
+
     /**
      * Render view response
      * 
@@ -78,16 +81,16 @@ trait ResponseMethods
             $config = $this->getBladeViewRenderConfig($bladePath);
             $bladePath = $config['view'];
             $method = $config['method'];
-            if(method_exists($this, $method)) {
+            if (method_exists($this, $method)) {
                 return $this->$method($bladePath, $data);
             }
             return $this->render($bladePath, $data);
         }
-        
+
         // Fallback: sử dụng view() helper
         return $this->render($bladePath, $data);
     }
-    
+
     /**
      * Tạo JSON response
      * 
@@ -105,13 +108,13 @@ trait ResponseMethods
     {
         // Nếu có bladePath, render view và thêm vào response
         $responseData = ['data' => $data];
-        
+
         if ($bladePath) {
             try {
-                if(method_exists($this, 'resolvePathByAlias')) {
+                if (method_exists($this, 'resolvePathByAlias')) {
                     $bladePath = $this->resolvePathByAlias($bladePath);
                 }
-                
+
                 // Thêm view HTML vào response
                 $responseData['view'] = $bladePath;
             } catch (\Throwable $e) {
@@ -121,14 +124,14 @@ trait ResponseMethods
                 $responseData['view_error'] = 'Không thể render view: ' . $e->getMessage();
             }
         }
-        
+
         // Merge headers mặc định
         $defaultHeaders = [
             'Content-Type' => 'application/json; charset=utf-8',
         ];
-        
+
         $mergedHeaders = array_merge($defaultHeaders, $headers);
-        
+
         return response()->json($responseData, $status, $mergedHeaders, $jsonOptions);
     }
     /**
@@ -139,7 +142,7 @@ trait ResponseMethods
      */
     public function wantsJsonResponse(Request $request): bool
     {
-        if(method_exists($request, 'wantsJson') && $request->wantsJson()) {
+        if (method_exists($request, 'wantsJson') && $request->wantsJson()) {
             return true;
         }
         // Kiểm tra header x-one-response (case-insensitive)
@@ -147,11 +150,11 @@ trait ResponseMethods
         if ($oneResponse && strtolower(trim($oneResponse)) === 'json') {
             return true;
         }
-        
-        
+
+
         return false;
     }
-    
+
     /**
      * Lấy header value không phân biệt hoa/thường
      * 
@@ -171,15 +174,15 @@ trait ResponseMethods
         if ($value !== null) {
             return $value;
         }
-        
+
         // Nếu không tìm thấy, thử các biến thể viết hoa
         // Laravel's header() method thường case-sensitive với một số header
         // Nên ta cần kiểm tra tất cả headers và so sánh case-insensitive
-        
+
         // Lấy tất cả headers từ request
         $allHeaders = $request->headers->all();
         $headerNameLower = strtolower($headerName);
-        
+
         // Tìm header không phân biệt hoa/thường
         foreach ($allHeaders as $key => $values) {
             if (strtolower($key) === $headerNameLower) {
@@ -187,10 +190,10 @@ trait ResponseMethods
                 return is_array($values) && count($values) > 0 ? $values[0] : $values;
             }
         }
-        
+
         return $default;
     }
-    
+
     /**
      * Trả về response với data và blade path
      * Tự động quyết định view hay JSON

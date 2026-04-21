@@ -413,10 +413,10 @@ trait RouteMethods
                 $blade = $b['shortcut'] ?? null;
                 if ($b['view'] ?? null) {
                     $vcm->registerContextViewByRoute($this->data['context'], $route, $b['view'] ?? null, $b['shortcut'] ?? null);
+                    return $b['view'];
                 }
-                return $b['view'] ?? null;
             } else {
-                return null;
+                return null;    
             }
         }
         if (str_starts_with($blade, '@MODULE:')) {
