@@ -237,13 +237,12 @@ class BlockDirectiveService
         $blockName = $parts['blockName'];
         $default = $parts['default'];
         $key = trim($blockName, '\'" ');
-        $output = "<?php echo \$__helper->endMarker('block', \$__VIEW_ID__ . '-b-' . {$blockName}); ?>";
+        $output = "";
         if ($default !== null) {
             $output .= "<?php echo \$__env->yieldContent('block-' . {$blockName}, {$default}); ?>";
         } else {
             $output .= "<?php echo \$__env->yieldContent('block-' . {$blockName}); ?>";
         }
-        $output .= "<?php \$__helper->endMarker('block', \$__VIEW_ID__ . '-b-' . {$blockName}); ?>";
         return $output;
     }
 
