@@ -505,12 +505,14 @@ class ViewContextManager implements OctaneCompatible
                 return [
                     'shortcut' => '@PAGE:' . $blade,
                     'view' => $path,
+                    'contextView' => 'pages.' . $blade,
                 ];
             }
             if (view()->exists($path = $this->resolvePath($context, '', $blade, 'base'))) {
                 return [
                     'shortcut' => '@BASE:' . $blade,
                     'view' => $path,
+                    'contextView' => $blade,
                 ];
             }
             return [];
@@ -522,15 +524,16 @@ class ViewContextManager implements OctaneCompatible
             return [
                 'shortcut' => '@MODULE:' . ($module . '.' . $blade),
                 'view' => $path,
+                'contextView' => 'modules.' . $module . '.' . $blade,
             ];
         }
 
         $p = $module . '.' . $blade;
         if (view()->exists($path  = $this->resolvePath($context, '', $p, 'pages'))) {
-            return ['shortcut' => '@PAGE:' . $p, 'view' => $path];
+            return ['shortcut' => '@PAGE:' . $p, 'view' => $path, 'contextView' => 'pages.' . $p];
         }
         if (view()->exists($path = $this->resolvePath($context, '', $p, 'base'))) {
-            return ['shortcut' => '@BASE:' . $p, 'view' => $path];
+            return ['shortcut' => '@BASE:' . $p, 'view' => $path, 'contextView' => 'base.' . $p];
         }
         return [];
     }
