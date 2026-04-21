@@ -197,6 +197,7 @@ class BlockDirectiveService
         $blockName = $parts['name'];
         $isVariable = $parts['isVariable'];
         $attributes = $parts['attributes'];
+        $attributesExpression = $parts['attributesExpression'];
         
         // Tạo attributes string cho HTML comment
         $attributesStr = $this->formatAttributesForComment($attributes);
@@ -204,10 +205,10 @@ class BlockDirectiveService
         // Generate code theo format yêu cầu với dynamic blockName
         if ($isVariable) {
             // Nếu là variable (bắt đầu với $), sử dụng dynamic blockName
-            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-b-' . {$blockName}; \$__env->startSection('block-'.{$blockName}); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => {$blockName}, 'viewId' => \$__BlockID__, 'attributes' => {$attributes}]); ?>";
+            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-b-' . {$blockName}; \$__env->startSection('block-'.{$blockName}); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => {$blockName}, 'viewId' => \$__BlockID__, 'attributes' => {$attributesExpression}]); ?>";
         } else {
             // Nếu là string literal, sử dụng static blockName
-            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-b-{$blockName}'; \$__env->startSection('block-{$blockName}'); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => '{$blockName}', 'viewId' => \$__BlockID__, 'attributes' => {$attributes}]); ?>";
+            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-b-{$blockName}'; \$__env->startSection('block-{$blockName}'); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => '{$blockName}', 'viewId' => \$__BlockID__, 'attributes' => {$attributesExpression}]); ?>";
         }
         
         return $code;
@@ -322,7 +323,12 @@ class BlockDirectiveService
             // Chỉ có name, không có attributes
             $name = trim($expression, '\'" ');
             $isVariable = str_starts_with($name, '$');
-            return ['name' => $name, 'isVariable' => $isVariable, 'attributes' => []];
+            return [
+                'name' => $name,
+                'isVariable' => $isVariable,
+                'attributes' => [],
+                'attributesExpression' => '[]',
+            ];
         }
         
         // Có cả name và attributes
@@ -331,9 +337,15 @@ class BlockDirectiveService
         
         $name = trim($namePart, '\'" ');
         $isVariable = str_starts_with($name, '$');
+        $attributesExpression = trim($attributesPart) ?: '[]';
         $attributes = $this->parseAttributesArray($attributesPart);
-        
-        return ['name' => $name, 'isVariable' => $isVariable, 'attributes' => $attributes];
+
+        return [
+            'name' => $name,
+            'isVariable' => $isVariable,
+            'attributes' => $attributes,
+            'attributesExpression' => $attributesExpression,
+        ];
     }
     
     private function parseAttributesArray($attributesStr)
