@@ -356,23 +356,26 @@ class ViewContextManager implements OctaneCompatible
      * - Nếu type = 'modules' và module rỗng → render từ base: context.blade
      * - Nếu type = 'modules' và module không rỗng → render module: context.modules.module.blade
      * - Nếu type khác (pages, components, layouts, templates) → render từ type: context.type.blade
+     * - Nếu type = 'route' → render từ đã 
      * 
      * @param string $context Tên context
      * @param string $module Tên module (có thể rỗng để render từ base)
      * @param string $blade Tên blade
-     * @param string $type Loại view (base, modules, pages, components, layouts, templates, hoặc '' để render từ base)
+     * @param string $type Loại view (base, modules, pages, components, layouts, templates, route, hoặc '' để render từ base)
      * @return string View path đã được resolve
      */
     public function resolvePath(string $context, string $module, string $blade, string $type = ''): string
     {
         // Danh sách type hợp lệ
-        $validTypes = ['', 'base', 'modules', 'pages', 'components', 'partials', 'layouts', 'templates'];
+        $validTypes = ['', 'base', 'modules', 'pages', 'components', 'partials', 'layouts', 'templates', 'route'];
 
         // Validate và normalize type
         if (!in_array($type, $validTypes, true)) {
             $type = '';
         }
-
+        if($type === 'route') {
+            return $blade;
+        }
         // Lấy base directory của context (dùng nhiều lần nên cache lại)
         $base = $this->getBaseDirectory($context, 'base') ?? $context;
 
