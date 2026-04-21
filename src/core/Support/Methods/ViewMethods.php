@@ -31,7 +31,7 @@ trait ViewMethods
      * @var string $moduleName Tên hiển thị của module
      */
     protected $moduleName = '';
-    
+
     /**
      * Lấy ViewContextManager từ container
      * 
@@ -44,7 +44,7 @@ trait ViewMethods
 
     protected function getModuleActionKey(string $action = ''): string
     {
-        return $this->context .($this->module? '.' . $this->module: '') . ($action?'.'.$action:'');
+        return $this->context . ($this->module ? '.' . $this->module : '') . ($action ? '.' . $action : '');
     }
 
     /**
@@ -165,36 +165,42 @@ trait ViewMethods
      * @param string $blade Tên blade
      * @return string View path đã được resolve
      */
-    public function resolvePathByAlias(string $blade): string{
+    public function resolvePathByAlias(string $blade): string
+    {
         $contextManager = $this->getViewContextManager();
         return $contextManager->resolvePathByAlias($this->context, $this->module, $blade);
     }
 
-    public function resolvePathByRoute(string $route): string{
+    public function resolvePathByRoute(string $route): string
+    {
         $contextManager = $this->getViewContextManager();
         return ($shortcut = $contextManager->resolvePathByRoute($this->context, $route)) ? $shortcut : '';
     }
 
-    public function getBladeViewRenderConfig(string $blade): array{
-        if(preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {
+    public function getBladeViewRenderConfig(string $blade): array
+    {
+        if (preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {
             $alias = strtolower($matches[1]);
             $separator = $matches[2];
             $remaining = $matches[3];
             $method = 'render';
-            if($alias == 'module') {
+            if ($alias == 'module') {
                 $method = 'renderModule';
-            }
-            elseif($alias == 'page') {
+            } elseif ($alias == 'page') {
                 $method = 'renderPage';
-            }
-            elseif($alias == 'component') {
+            } elseif ($alias == 'component') {
                 $method = 'renderComponent';
-            }
-            elseif($alias == 'layout') {
+            } elseif ($alias == 'layout') {
                 $method = 'renderLayout';
-            }
-            elseif($alias == 'template') {
+            } elseif ($alias == 'template') {
                 $method = 'renderTemplate';
+            } elseif ($alias == 'contextview') {
+                $method = 'render';
+            } elseif ($alias == 'raw') {
+                $method = 'render';
+            } else {
+                // Nếu alias không khớp với bất kỳ loại nào, trả về method mặc định
+                $method = 'render';
             }
 
             return [

@@ -49,8 +49,8 @@ trait ResponseMethods
         if (!$bladePath && !$forceJson && !$wantsJson && $routeName) {
             $bladeConfig = app(ViewContextManager::class)->routeToViewPathConfig($this->context, $routeName);
             // $bladePath = $bladeConfig['shortcut'] ?? null;
-            if ($bladeConfig && ($bladeConfig['view'] ?? null)) {
-                $bladePath = '@RAW:' . ($bladeConfig['view'] ?? null);
+            if ($bladeConfig && ($bladeConfig['contextView'] ?? null)) {
+                $bladePath = '@RAW:' . ($bladeConfig['contextView'] ?? null);
             }
         }
 
