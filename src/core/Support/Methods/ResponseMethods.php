@@ -145,6 +145,11 @@ trait ResponseMethods
         if (method_exists($request, 'wantsJson') && $request->wantsJson()) {
             return true;
         }
+        // Kiểm tra header x-sao-response (case-insensitive)
+        $saoResponse = $this->getHeaderCaseInsensitive($request, 'x-sao-response');
+        if ($saoResponse && strtolower(trim($saoResponse)) === 'json') {
+            return true;
+        }
         // Kiểm tra header x-one-response (case-insensitive)
         $oneResponse = $this->getHeaderCaseInsensitive($request, 'x-one-response');
         if ($oneResponse && strtolower(trim($oneResponse)) === 'json') {
@@ -159,7 +164,7 @@ trait ResponseMethods
      * Lấy header value không phân biệt hoa/thường
      * 
      * Hỗ trợ các cách viết:
-     * - x-one-response, X-One-Response, X-ONE-RESPONSE
+     * - x-sao-response, X-Sao-Response, X-SAO-RESPONSE
      * - accept, Accept, ACCEPT
      * 
      * @param Request $request
