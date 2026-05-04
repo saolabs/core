@@ -15,7 +15,7 @@ class ViewStorageManager
     protected $eventRegistry = [];
     protected $systemData = [];
 
-    protected $markerPrefix = 'o';
+    protected $markerPrefix = 's'; // Saola Marker
     protected $markerTagShortcut = [
         "view" => 'v',                           // View Marker
         "component" => 'c',                      // Component Marker
