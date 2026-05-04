@@ -246,7 +246,7 @@ class ViewStorageManager
         }
     }
 
-    public function startWrapper(array | string $tags, array $attributes = [], string $viewId = '')
+    public function startWrapper(mixed $tags, array $attributes = [], string $viewId = '')
     {
         $this->wrapperLevel++;
         if (is_array($tags)) {
@@ -287,18 +287,18 @@ class ViewStorageManager
         echo ' data-view-wrapper="' . $viewId . '"';
     }
 
-    public function addScript($viewName, $viewId, $scripts)
+    public function addScript(string $viewName, string $viewId, $scripts)
     {
         $this->registerView($viewName, $viewId);
         $this->viewStorage[$viewName][$viewId]['scripts'] = $scripts;
     }
-    public function addStyle($viewName, $viewId, $styles)
+    public function addStyle(string $viewName, string $viewId, $styles)
     {
         $this->registerView($viewName, $viewId);
         $this->viewStorage[$viewName][$viewId]['styles'] = $styles;
     }
 
-    public function addEventListener($viewPath = null, $viewId = null, $eventType = null, $handlers = [])
+    public function addEventListener(string $viewPath = null, string $viewId = null, string $eventType = null, array $handlers = [])
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
@@ -317,7 +317,7 @@ class ViewStorageManager
         return " data-{$eventType}-id=\"{$eventID}\"";
     }
 
-    public function addEventQuickHandle($viewPath = null, $viewId = null, $eventType = null, $quickHandlers = [])
+    public function addEventQuickHandle(string $viewPath = null, string $viewId = null, string $eventType = null, array $quickHandlers = [])
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
@@ -330,7 +330,7 @@ class ViewStorageManager
         return " data-{$eventType}-quick-id=\"{$eventID}\"";
     }
 
-    public function subscribeState($viewPath = null, $viewId = null, $subscribe = true)
+    public function subscribeState(string $viewPath = null, string $viewId = null, bool $subscribe = true)
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
@@ -338,7 +338,7 @@ class ViewStorageManager
         $this->viewStorage[$viewPath]['instances'][$viewId]['subscribe'] = $subscribe;
     }
 
-    public function addOutputComponent($viewPath, $viewId, $ocTaskId, $stateKeys)
+    public function addOutputComponent(string $viewPath, string $viewId, string $ocTaskId, string $stateKeys)
     {
         $this->registerView($viewPath, $viewId);
         if (!isset($this->viewStorage[$viewPath]['instances'][$viewId]['outputComponents'])) {
@@ -352,7 +352,7 @@ class ViewStorageManager
         return $outputComponentIndex;
     }
 
-    public function addTagAttribute($viewPath, $viewId, $config = [], $attr = null, $value = null)
+    public function addTagAttribute(string $viewPath, string $viewId, array $config = [], $attr = null, $value = null)
     {
         $this->registerView($viewPath, $viewId);
         if (!isset($this->viewStorage[$viewPath]['instances'][$viewId]['attributes'])) {
@@ -382,7 +382,7 @@ class ViewStorageManager
         return $output;
     }
 
-    public function setState($viewPath, $viewId, $stateKey, $stateValue)
+    public function setState(string $viewPath, string $viewId, string $stateKey, mixed $stateValue)
     {
         $this->registerView($viewPath, $viewId);
         if (!isset($this->viewStorage[$viewPath]['instances'][$viewId]['states'])) {
@@ -394,20 +394,20 @@ class ViewStorageManager
         $this->viewStorage[$viewPath]['instances'][$viewId]['states'][$stateKey] = $stateValue;
     }
 
-    public function addMarkerTagShortcut($name, $shortcut){
+    public function addMarkerTagShortcut(string $name, string $shortcut){
         $this->markerTagShortcut[$name] = $shortcut;
     }
 
-    public function getMarkerTagShortcut($name){
+    public function getMarkerTagShortcut(string $name){
         return $this->markerTagShortcut[$name] ?? $name;
     }
 
-    public function getMarkerKey($name, $registryID){
+    public function getMarkerKey(string $name, string $registryID){
         $name = $this->getMarkerTagShortcut($name);
         return $name.':'.$registryID;
     }
 
-    public function addReactiveRegistry($type, $registryID, $stateKeys, $options = []){
+    public function addReactiveRegistry(string $type, string $registryID, string $stateKeys, array $options = []){
         $key = $this->getMarkerKey('reactive', $registryID);
         $this->markerRegistery[$key] = [
             'type' => $type,
@@ -420,7 +420,7 @@ class ViewStorageManager
         return $key;
     }
 
-    public function addMarkerRegistry($name, $registryID, $attributes = []){
+    public function addMarkerRegistry(string $name, string $registryID, array $attributes = []){
         $key = $this->getMarkerKey($name, $registryID);
         $this->markerRegistery[$key] = [
             'name' => $name,
@@ -430,11 +430,11 @@ class ViewStorageManager
         return $key;
     }
 
-    public function getMarkerOpenTag($name, $registryID){
+    public function getMarkerOpenTag(string $name, string $registryID){
         $key = $this->getMarkerKey($name, $registryID);
         return '<!--'.$this->markerPrefix.':'.$key.'-->';
     }
-    public function getMarkerCloseTag($name, $registryID){
+    public function getMarkerCloseTag(string $name, string $registryID){
         $key = $this->getMarkerKey($name, $registryID);
         return '<!--/'.$this->markerPrefix.':'.$key.'-->';
     }
