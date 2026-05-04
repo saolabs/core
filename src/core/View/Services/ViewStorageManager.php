@@ -65,7 +65,7 @@ class ViewStorageManager
         $this->markerRegistery = [];
     }
 
-    public function registerView($viewName, $viewId)
+    public function registerView(string $viewName, string $viewId)
     {
         if (!isset($this->viewStorage[$viewName])) {
             $this->viewStorage[$viewName] = [
@@ -87,7 +87,7 @@ class ViewStorageManager
 
 
 
-    public function addViewData($viewName, $viewId, $data)
+    public function addViewData(string $viewName, string $viewId, array $data)
     {
         $this->registerView($viewName, $viewId);
         if (!isset($this->viewStorage[$viewName]['instances'][$viewId])) {
@@ -96,13 +96,13 @@ class ViewStorageManager
         $this->viewStorage[$viewName]['instances'][$viewId]['data'] = $this->deepArrayConvert($data);
     }
 
-    public function getViewData($viewName, $viewId)
+    public function getViewData(string $viewName, string $viewId)
     {
         $this->registerView($viewName, $viewId);
         return $this->viewStorage[$viewName]['instances'][$viewId]['data'];
     }
 
-    public function setParentView($viewName, $viewId, $parentViewName, $parentViewId)
+    public function setParentView(string $viewName, string $viewId, string $parentViewName, string $parentViewId)
     {
         $this->registerView($viewName, $viewId);
         $this->viewStorage[$viewName]['instances'][$viewId]['parent'] = [
@@ -111,7 +111,7 @@ class ViewStorageManager
         ];
     }
 
-    public function setOriginView($viewName, $viewId, $originViewName, $originViewId)
+    public function setOriginView(string $viewName, string $viewId, string $originViewName, string $originViewId)
     {
         $this->registerView($viewName, $viewId);
         $this->viewStorage[$viewName]['instances'][$viewId]['origin'] = [
@@ -119,7 +119,7 @@ class ViewStorageManager
             'id' => $originViewId
         ];
     }
-    public function setSuperView($viewName, $viewId, $superViewName, $superViewId)
+    public function setSuperView(string $viewName, string $viewId, string $superViewName, string $superViewId)
     {
         $this->registerView($viewName, $viewId);
         $this->viewStorage[$viewName]['instances'][$viewId]['super'] = [
@@ -128,7 +128,7 @@ class ViewStorageManager
         ];
     }
 
-    public function addChildrenView($viewName, $viewId, $childrenViewName, $childrenViewId)
+    public function addChildrenView(string $viewName, string $viewId, string $childrenViewName, string $childrenViewId)
     {
         $this->registerView($viewName, $viewId);
         if (!isset($this->viewStorage[$viewName]['instances'][$viewId]['children'])) {
@@ -169,7 +169,7 @@ class ViewStorageManager
         return $exportData;
     }
 
-    public function setSystemData($data = [])
+    public function setSystemData(array $data = [])
     {
         $this->systemData = array_merge($this->systemData, $data);
     }
@@ -230,7 +230,7 @@ class ViewStorageManager
         }
     }
 
-    public function addInitCode($viewName, $viewId, $code)
+    public function addInitCode(string $viewName, string $viewId, string $code)
     {
         $this->registerView($viewName, $viewId);
         preg_match('/<script[^>]*>(.*?)<\/script>/s', $code, $matches);
@@ -246,7 +246,7 @@ class ViewStorageManager
         }
     }
 
-    public function startWrapper($tags, $attributes = [], $viewId = null)
+    public function startWrapper(array | string $tags, array $attributes = [], string $viewId = '')
     {
         $this->wrapperLevel++;
         if (is_array($tags)) {
