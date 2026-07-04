@@ -12,37 +12,11 @@ use Illuminate\Support\Facades\Blade;
  */
 class ReactiveDirectiveService
 {
-    protected $markerPrefix = 'o';
-    protected $markerTagShortcut = [
-        "view" => 'v',                           // View Marker
-        "component" => 'c',                      // Component Marker
-        "block" => 'b',                          // Block Marker
-        "reactive" => 'r',                       // Reactive Marker
-        "section" => 's',                        // Section Marker
-        "layout" => 'l',                         // Layout Marker
-        "for" => 'fo',                           // For loop Marker
-        "forin" => 'fi',                         // For-in loop Marker
-        "foreach" => 'fe',                       // For-each loop Marker
-        "forelse" => 'fls',                      // Forelse loop Marker
-        "each" => 'ea',                          // Each loop Marker
-        "if" => 'if',                            // If condition Marker
-        "switch" => 'sw',                        // Switch condition Marker
-        "while" => 'wh',                         // While loop Marker
-        "include" => 'inc',                      // Include Marker
-        "echo" => 'e',                           // Echo Marker
-        "echoescaped" => 'ee',                   // Echo escaped Marker
-        "yield" => 'y',                          // Yield Marker
-        "slot" => 'st',                          // Slot Marker
-        "template" => 't',                       // Template Marker
-        "style" => 'sty',                        // Style Marker
-        "script" => 'sc',                        // Script Marker
-        "useblock" => 'ub',                      // Use block Marker
-        "extend" => 'ex',                        // Extend Marker
-    ];
+    // LƯU Ý: marker prefix + shortcut map đã được tập trung tại
+    // ViewStorageManager (nguồn sự thật duy nhất, khớp client MarkerRegistry).
+    // Trước đây class này có bản sao riêng (prefix 'o', map lệch) nhưng KHÔNG
+    // được dùng để emit — đã gỡ để tránh nhầm cấu trúc marker.
 
-    public function getMarkerTagShortcut($name){
-        return $this->markerTagShortcut[$name] ?? $name;
-    }
     /**
      * Đăng ký các reactive directives
      */

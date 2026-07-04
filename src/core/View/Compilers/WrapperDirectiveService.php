@@ -37,7 +37,7 @@ class WrapperDirectiveService
         Blade::directive('EndWrapper', function ($expression) {
             return $this->endWrapDirective($expression);
         });
-        Blade::directive('endwrapper', function ($expression) {
+        Blade::directive('endWrapper', function ($expression) {
             return $this->endWrapDirective($expression);
         });
     }

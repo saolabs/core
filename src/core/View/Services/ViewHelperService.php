@@ -370,4 +370,42 @@ class ViewHelperService
         return $this->viewStorageManager->getMarkerCloseTag($name, $markerId);
     }
 
+    /**
+     * Render SSR boot script cho client hydrate (RUNTIME_CONTRACT §6).
+     *
+     * Phát ra:
+     *   <script type="application/json" data-ref="saola-ssr">
+     *     {"container":"#app-root","view":"<viewPath>","viewId":"<viewId>"}
+     *   </script>
+     *
+     * Client (App.start → readSSRBoot) đọc script này để hydrate route đầu tiên
+     * thay vì mount mới. viewId của layout chain client tự discover từ DOM marker,
+     * nên chỉ cần page entry ở đây.
+     *
+     * @param string $view      Registry path của page entry (thường $__VIEW_PATH__)
+     * @param string $viewId    viewId server đã render (thường $__VIEW_ID__)
+     * @param string $container CSS selector container chứa SSR HTML
+     */
+    public function renderSSRBoot($view = '', $viewId = '', $container = '#app-root'){
+        // $view/$viewId truyền từ shell (_system.page.end) trỏ về CHÍNH page-shell
+        // partial, KHÔNG phải route component → client consumeSSRViewId không khớp.
+        // Ưu tiên derive page entry thật (route component) từ render tree.
+        $entry = $this->viewStorageManager->getEntryView();
+        if ($entry) {
+            $view = $entry['name'];
+            $viewId = $entry['id'];
+        }
+        // Thiếu view/viewId → KHÔNG emit (client readSSRBoot trả null → CSR boot).
+        // Tránh phát boot rỗng làm hydrate sai. An toàn khi var chưa có trong scope.
+        if (empty($view) || empty($viewId)) {
+            return '';
+        }
+        $payload = json_encode([
+            'container' => $container,
+            'view'      => $view,
+            'viewId'    => $viewId,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return '<script type="application/json" data-ref="saola-ssr">' . $payload . '</script>';
+    }
+
 }

@@ -12,18 +12,15 @@ class BindingDirectiveService
      */
     public function registerDirectives(): void
     {
-        // Register @val directive (primary)
-        Blade::directive('val', function ($expression) {
-            $bindingValue = $this->convertPhpToBinding($expression);
-            return 'data-binding="' . $bindingValue . '" data-view-id="<?php echo $__VIEW_ID__; ?>"';
-        });
-        
-        // Register @bind directive as alias of @val
-        Blade::directive('bind', function ($expression) {
-            // Use the same logic as @val (they are aliases)
-            $bindingValue = $this->convertPhpToBinding($expression);
-            return 'data-binding="' . $bindingValue . '" data-view-id="<?php echo $__VIEW_ID__; ?>"';
-        });
+        // @val / @bind (alias) — two-way binding.
+        // LEGACY removed 2026-06-23: từng emit `data-binding="x" data-view-id="..."`
+        // cho client CŨ dò element + setup binding từ DOM attr. Client hiện tại lấy
+        // binding từ compiled factory (`attrs:{bind:true,<stateKey>:true}` →
+        // Html.setupTwoWayBinding) — KHÔNG đọc data-binding/data-view-id (đã verify
+        // e2e: gõ textarea → alert(message) đúng; hydrate set value từ state). Emit
+        // rỗng để SSR sạch; binding vẫn chạy qua JS đã compile.
+        Blade::directive('val', fn ($expression) => '');
+        Blade::directive('bind', fn ($expression) => '');
     }
     
     /**

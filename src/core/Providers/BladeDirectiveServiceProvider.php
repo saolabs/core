@@ -22,6 +22,7 @@ use Saola\Core\View\Compilers\SetupDirectiveService;
 use Saola\Core\View\Compilers\SubscribeDirectiveService;
 use Saola\Core\View\Compilers\TemplateDirectiveService;
 use Saola\Core\View\Compilers\VarsDirectiveService;
+use Saola\Core\View\Compilers\MarkerRegistryDirectiveService;
 use Saola\Core\View\Compilers\WrapperDirectiveService;
 use Saola\Core\View\Compilers\YieldDirectiveService;
 
@@ -63,6 +64,8 @@ class BladeDirectiveServiceProvider extends ServiceProvider
     protected $templateService;
     /** @var VarsDirectiveService */
     protected $varsService;
+    /** @var MarkerRegistryDirectiveService */
+    protected $markerRegistryService;
     /** @var WrapperDirectiveService */
     protected $wrapperService;
     /** @var YieldDirectiveService */
@@ -92,6 +95,7 @@ class BladeDirectiveServiceProvider extends ServiceProvider
             SubscribeDirectiveService::class,
             TemplateDirectiveService::class,
             VarsDirectiveService::class,
+            MarkerRegistryDirectiveService::class,
             WrapperDirectiveService::class,
             YieldDirectiveService::class,
         ];
@@ -127,6 +131,7 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         $this->subscribeService = $this->app->make(SubscribeDirectiveService::class);
         $this->templateService = $this->app->make(TemplateDirectiveService::class);
         $this->varsService = $this->app->make(VarsDirectiveService::class);
+        $this->markerRegistryService = $this->app->make(MarkerRegistryDirectiveService::class);
         $this->wrapperService = $this->app->make(WrapperDirectiveService::class);
         $this->yieldService = $this->app->make(YieldDirectiveService::class);
 
@@ -147,6 +152,7 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         $this->setupService->registerDirectives();
         $this->subscribeService->registerDirectives();
         $this->templateService->registerDirectives();
+        $this->markerRegistryService->registerDirectives();
         $this->wrapperService->registerDirectives();
         $this->yieldService->registerDirectives();
 

@@ -140,6 +140,34 @@ class ViewStorageManager
         ];
     }
 
+    /**
+     * Tìm view "entry" của trang — page/module được route render đầu tiên.
+     *
+     * Trong render tree, page entry là instance DUY NHẤT không có `parent`
+     * (layout/partial/system đều được include từ view khác nên có parent). Bỏ
+     * qua các view `_system.*` để chắc chắn lấy đúng route component, không lấy
+     * page-shell partial.
+     *
+     * Dùng cho SSR boot: client hydrate route đầu cần biết component path + viewId
+     * của PAGE, không phải của `_system.page.end` đang render lúc emit boot script.
+     *
+     * @return array{name:string,id:string}|null
+     */
+    public function getEntryView(): ?array
+    {
+        foreach ($this->viewStorage as $viewName => $view) {
+            if (str_starts_with($viewName, '_system')) {
+                continue;
+            }
+            foreach ($view['instances'] as $viewId => $instance) {
+                if (!isset($instance['parent'])) {
+                    return ['name' => $viewName, 'id' => (string) $viewId];
+                }
+            }
+        }
+        return null;
+    }
+
     public function exportViewData()
     {
         $exportData = [];
@@ -354,18 +382,15 @@ class ViewStorageManager
 
     public function addTagAttribute(string $viewPath, string $viewId, array $config = [], $attr = null, $value = null)
     {
+        // LEGACY removed 2026-06-23: từng lưu $config vào ssrData['attributes'] +
+        // đánh dấu element bằng `data-one-attribute-id` cho hydration CŨ (client
+        // tìm element qua id này rồi khôi phục reactive-attr từ APP_CONFIGS.ssrData).
+        // Client hiện tại claim element qua class {viewId}-{id} và lấy reactivity từ
+        // compiled factory (attrs:{...}) — KHÔNG đọc ssrData/data-one-attribute-id.
+        // Nên chỉ render giá trị attr TĨNH (giá trị khởi tạo) ra HTML, bỏ marker thừa.
         $this->registerView($viewPath, $viewId);
-        if (!isset($this->viewStorage[$viewPath]['instances'][$viewId]['attributes'])) {
-            $this->viewStorage[$viewPath]['instances'][$viewId]['attributes'] = [];
-        }
-        $id = uniqid();
-        $this->viewStorage[$viewPath]['instances'][$viewId]['attributes'][] = [
-            'id' => $id,
-            'config' => $config
-        ];
 
-        $output = " data-one-attribute-id=\"{$id}\"";
-
+        $output = '';
         if (!$attr) {
             return $output;
         }
@@ -430,12 +455,15 @@ class ViewStorageManager
         return $key;
     }
 
+    // Format chuẩn (RUNTIME_CONTRACT.md §5.1) — phải khớp client MarkerRegistry:
+    //   open:  <!--s:{shortcut}:{id}-s-->
+    //   close: <!--s:{shortcut}:{id}-e-->
     public function getMarkerOpenTag(string $name, string $registryID){
         $key = $this->getMarkerKey($name, $registryID);
-        return '<!--'.$this->markerPrefix.':'.$key.'-->';
+        return '<!--'.$this->markerPrefix.':'.$key.'-s-->';
     }
     public function getMarkerCloseTag(string $name, string $registryID){
         $key = $this->getMarkerKey($name, $registryID);
-        return '<!--/'.$this->markerPrefix.':'.$key.'-->';
+        return '<!--'.$this->markerPrefix.':'.$key.'-e-->';
     }
 }

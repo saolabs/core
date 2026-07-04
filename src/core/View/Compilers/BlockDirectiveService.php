@@ -198,16 +198,15 @@ class BlockDirectiveService
         $isVariable = $parts['isVariable'];
         $attributes = $parts['attributes'];
         
-        // Tạo attributes string cho HTML comment
-        $attributesStr = $this->formatAttributesForComment($attributes);
-        
+        $attributesPhp = empty($attributes) ? '[]' : var_export($attributes, true);
+
         // Generate code theo format yêu cầu với dynamic blockName
         if ($isVariable) {
             // Nếu là variable (bắt đầu với $), sử dụng dynamic blockName
-            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-block-' . {$blockName}; \$__env->startSection('block-'.{$blockName}); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => {$blockName}, 'viewId' => \$__BlockID__, 'attributes' => {$attributes}]); ?>";
+            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-block-' . {$blockName}; \$__env->startSection('block-'.{$blockName}); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => {$blockName}, 'viewId' => \$__BlockID__, 'attributes' => {$attributesPhp}]); ?>";
         } else {
             // Nếu là string literal, sử dụng static blockName
-            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-block-{$blockName}'; \$__env->startSection('block-{$blockName}'); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => '{$blockName}', 'viewId' => \$__BlockID__, 'attributes' => {$attributes}]); ?>";
+            $code = "<?php \$__BlockID__ = \$__VIEW_ID__ . '-block-{$blockName}'; \$__env->startSection('block-{$blockName}'); echo \$__helper->startMarker('block', \$__BlockID__, ['name' => '{$blockName}', 'viewId' => \$__BlockID__, 'attributes' => {$attributesPhp}]); ?>";
         }
         
         return $code;
