@@ -212,10 +212,9 @@ class OctaneServiceProvider extends ServiceProvider
     /**
      * Reset View Engines
      * 
-     * LƯU Ý: ViewContextManager KHÔNG được reset vì:
-     * - Contexts cần được giữ lại giữa các requests (persistent state)
-     * - Contexts có thể được cập nhật động (ví dụ: khi admin đổi theme)
-     * - ViewContextManager được đăng ký như singleton và contexts là shared state
+     * ViewContextManager, ViewStorageManager and their helpers are scoped
+     * bindings. Laravel/Octane discards their request state automatically;
+     * only ViewContextRegistry remains worker-wide.
      */
     protected function resetViewEngines(): void
     {
@@ -230,12 +229,7 @@ class OctaneServiceProvider extends ServiceProvider
             ViewDataEngine::$shared = false;
         }
 
-        // KHÔNG reset ViewContextManager - contexts phải được giữ lại
-        // ViewContextManager::resetInstanceState() đã được implement để không reset contexts
-
-        // Reset ViewEngine instances - chỉ reset cache, không reset context manager
-        // ViewEngine instances sẽ được reset thông qua resetServicesState()
-        // ViewEngine chỉ reset resolvedPaths cache, không ảnh hưởng đến ViewContextManager
+        // Scoped view services are released by Laravel at the lifecycle edge.
     }
 
     /**
@@ -438,4 +432,4 @@ class OctaneServiceProvider extends ServiceProvider
             }
         }
     }
-} 
+}

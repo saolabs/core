@@ -39,12 +39,12 @@ class ViewContextManager implements OctaneCompatible
      *   ...
      * ]
      */
-    protected $contexts = [];
+    protected ViewContextRegistry $registry;
 
     /**
-     * @var string Context mặc định
+     * View directory overrides that only live for the current request/job.
      */
-    protected $defaultContext = '';
+    protected array $contextViewOverrides = [];
 
     /**
      * @var array Shared data cho mỗi context
@@ -58,10 +58,9 @@ class ViewContextManager implements OctaneCompatible
     /**
      * Constructor
      */
-    public function __construct()
+    public function __construct(?ViewContextRegistry $registry = null)
     {
-        // Không tự động đăng ký context
-        // Phía web sẽ tự đăng ký
+        $this->registry = $registry ?? new ViewContextRegistry();
     }
 
     /**
@@ -99,27 +98,30 @@ class ViewContextManager implements OctaneCompatible
             // Merge với variables mặc định (giữ lại các variables tùy chỉnh nếu có)
             $variables = array_merge($defaultVariables, $variables);
         }
-        if (isset($this->contexts[$name])) {
+        $contextConfig = $this->registry->get($name);
+        if ($contextConfig !== null) {
             // Nếu context đã tồn tại, merge directories và variables
-            $this->contexts[$name]['directories'] = array_merge(
-                $this->contexts[$name]['directories'] ?? [],
+            $contextConfig['directories'] = array_merge(
+                $contextConfig['directories'] ?? [],
                 $directories
             );
-            $this->contexts[$name]['variables'] = array_merge(
-                $this->contexts[$name]['variables'] ?? [],
+            $contextConfig['variables'] = array_merge(
+                $contextConfig['variables'] ?? [],
                 $variables
             );
         } else {
             // Nếu context chưa tồn tại, tạo mới
-            $this->contexts[$name] = [
+            $contextConfig = [
                 'directories' => $directories,
                 'variables' => $variables ?? [],
                 'routeViews' => [], // Lưu cache route => view path nếu cần
             ];
         }
+        $this->registry->put($name, $contextConfig);
+
         // Set context đầu tiên làm mặc định nếu chưa có
-        if (!$this->defaultContext) {
-            $this->defaultContext = $name;
+        if (!$this->registry->getDefaultContext()) {
+            $this->registry->setDefaultContext($name);
         }
 
         return $this;
@@ -127,24 +129,27 @@ class ViewContextManager implements OctaneCompatible
 
     public function registerContextViewByRoute(string $context, string $route, string $viewPath, ?string $shortcut = null): self
     {
-        if (isset($this->contexts[$context])) {
-            $this->contexts[$context]['routeViews'][$route] = [
+        $contextConfig = $this->registry->get($context);
+        if ($contextConfig !== null) {
+            $contextConfig['routeViews'][$route] = [
                 'view' => $viewPath,
                 'shortcut' => $shortcut,
             ];
+            $this->registry->put($context, $contextConfig);
         }
         return $this;
     } 
 
     public function getViewPathByRoute(string $context, string $route, string $type = 'view'): ?string
     {
-        if (!isset($this->contexts[$context]) || !isset($this->contexts[$context]['routeViews'][$route])) {
+        $config = $this->registry->get($context);
+        if ($config === null || !isset($config['routeViews'][$route])) {
             return null;
         }
-        if($type === 'shortcut' && isset($this->contexts[$context]['routeViews'][$route]['shortcut'])) {
-            return $this->contexts[$context]['routeViews'][$route]['shortcut'];
+        if($type === 'shortcut' && isset($config['routeViews'][$route]['shortcut'])) {
+            return $config['routeViews'][$route]['shortcut'];
         }
-        return $this->contexts[$context]['routeViews'][$route]['view'] ?? null;
+        return $config['routeViews'][$route]['view'] ?? null;
     }
 
     /**
@@ -156,7 +161,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getBaseDirectory(string $context, string $type): ?string
     {
-        return $this->contexts[$context]['directories'][$type] ?? null;
+        return $this->getContextDirectories($context)[$type] ?? null;
     }
 
     /**
@@ -167,7 +172,9 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getContextDirectories(string $context): ?array
     {
-        return $this->contexts[$context]['directories'] ?? null;
+        return $this->contextViewOverrides[$context]['directories']
+            ?? $this->registry->get($context)['directories']
+            ?? null;
     }
 
     /**
@@ -178,7 +185,9 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getContextVariables(string $context): ?array
     {
-        return $this->contexts[$context]['variables'] ?? null;
+        return $this->contextViewOverrides[$context]['variables']
+            ?? $this->registry->get($context)['variables']
+            ?? null;
     }
 
     /**
@@ -190,7 +199,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getContextVariable(string $context, string $variable): ?string
     {
-        return $this->contexts[$context]['variables'][$variable] ?? null;
+        return $this->getContextVariables($context)[$variable] ?? null;
     }
 
     /**
@@ -201,7 +210,16 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getContextConfig(string $context): ?array
     {
-        return $this->contexts[$context] ?? null;
+        $config = $this->registry->get($context);
+        if ($config === null) {
+            return null;
+        }
+
+        if (isset($this->contextViewOverrides[$context])) {
+            $config = array_merge($config, $this->contextViewOverrides[$context]);
+        }
+
+        return $config;
     }
 
     /**
@@ -212,7 +230,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function hasContext(string $context): bool
     {
-        return isset($this->contexts[$context]);
+        return $this->registry->has($context);
     }
 
     /**
@@ -222,7 +240,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getAllContexts(): array
     {
-        return array_keys($this->contexts);
+        return $this->registry->names();
     }
 
     /**
@@ -233,7 +251,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function setDefaultContext(string $context): self
     {
-        $this->defaultContext = $context;
+        $this->registry->setDefaultContext($context);
         return $this;
     }
 
@@ -244,7 +262,7 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getDefaultContext(): string
     {
-        return $this->defaultContext;
+        return $this->registry->getDefaultContext();
     }
 
     /**
@@ -256,11 +274,13 @@ class ViewContextManager implements OctaneCompatible
      */
     public function updateContextVariables(string $context, array $variables): self
     {
-        if (isset($this->contexts[$context])) {
-            $this->contexts[$context]['variables'] = array_merge(
-                $this->contexts[$context]['variables'] ?? [],
+        $config = $this->registry->get($context);
+        if ($config !== null) {
+            $config['variables'] = array_merge(
+                $config['variables'] ?? [],
                 $variables
             );
+            $this->registry->put($context, $config);
         }
         return $this;
     }
@@ -276,20 +296,23 @@ class ViewContextManager implements OctaneCompatible
      */
     public function updateContextDirectories(string $context, array $directories, ?array $variables = null): self
     {
-        if (isset($this->contexts[$context])) {
-            $this->contexts[$context]['directories'] = array_merge(
-                $this->contexts[$context]['directories'] ?? [],
+        $config = $this->registry->get($context);
+        if ($config !== null) {
+            $config['directories'] = array_merge(
+                $config['directories'] ?? [],
                 $directories
             );
+            $this->registry->put($context, $config);
 
             // Tự động cập nhật variables từ directories['base'] nếu không có
             if ($variables === null) {
                 $this->regenerateVariablesFromDirectories($context);
             } else {
-                $this->contexts[$context]['variables'] = array_merge(
-                    $this->contexts[$context]['variables'] ?? [],
+                $config['variables'] = array_merge(
+                    $config['variables'] ?? [],
                     $variables
                 );
+                $this->registry->put($context, $config);
             }
         }
         return $this;
@@ -320,11 +343,12 @@ class ViewContextManager implements OctaneCompatible
      */
     protected function regenerateVariablesFromDirectories(string $context): void
     {
-        if (!isset($this->contexts[$context])) {
+        $config = $this->registry->get($context);
+        if ($config === null) {
             return;
         }
 
-        $directories = $this->contexts[$context]['directories'];
+        $directories = $config['directories'];
         $basePath = $directories['base'] ?? $context;
         $basePath = rtrim($basePath, '.');
 
@@ -342,10 +366,115 @@ class ViewContextManager implements OctaneCompatible
         ];
 
         // Merge với variables hiện có (giữ lại các variables tùy chỉnh)
-        $this->contexts[$context]['variables'] = array_merge(
-            $newVariables,
-            $this->contexts[$context]['variables'] ?? []
+        $config['variables'] = array_merge(
+            $config['variables'] ?? [],
+            $newVariables
         );
+        $this->registry->put($context, $config);
+    }
+
+    /**
+     * Select compiled views for one or more contexts for the current request.
+     *
+     * Accepted values include a Blade base ("themes.storefront"), a relative
+     * path ("themes/storefront"), or the matching Sao source directory
+     * ("resources/saola/themes/storefront/views"). Source paths are converted
+     * to the compiled Blade namespace; Sao files are never compiled here.
+     *
+     * @param string|array<string,string> $context
+     */
+    public function setContextViews(string|array $context, ?string $views = null): self
+    {
+        if (is_array($context)) {
+            foreach ($context as $contextName => $contextViews) {
+                $this->setContextViews($contextName, $contextViews);
+            }
+            return $this;
+        }
+
+        if (!$this->hasContext($context)) {
+            throw new \InvalidArgumentException("View context [{$context}] is not registered.");
+        }
+
+        if ($views === null) {
+            throw new \InvalidArgumentException("Views path for context [{$context}] is required.");
+        }
+
+        $base = $this->normalizeViewsBase($views);
+        $directories = $this->makeDirectories($base);
+
+        $this->contextViewOverrides[$context] = [
+            'directories' => $directories,
+            'variables' => $this->makeVariables($directories),
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Remove the request-scoped view selection and fall back to the registry.
+     */
+    public function clearContextViews(?string $context = null): self
+    {
+        if ($context === null) {
+            $this->contextViewOverrides = [];
+        } else {
+            unset($this->contextViewOverrides[$context]);
+        }
+
+        return $this;
+    }
+
+    public function getContextViews(string $context): ?string
+    {
+        return $this->getBaseDirectory($context, 'base');
+    }
+
+    protected function normalizeViewsBase(string $views): string
+    {
+        $views = str_replace('\\', '/', trim($views));
+
+        if (preg_match('#(?:^|/)resources/saola/(.+?)/views/?$#', $views, $matches)) {
+            $views = $matches[1];
+        } elseif (preg_match('#(?:^|/)resources/views/(.+?)/?$#', $views, $matches)) {
+            $views = $matches[1];
+        }
+
+        $base = trim(preg_replace('#[/.]+#', '.', $views) ?? '', '.');
+        if ($base === '' || !preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/', $base)) {
+            throw new \InvalidArgumentException("Invalid context views path [{$views}].");
+        }
+
+        return $base;
+    }
+
+    protected function makeDirectories(string $base): array
+    {
+        return [
+            'base' => $base,
+            'components' => "{$base}.components",
+            'templates' => "{$base}.templates",
+            'partials' => "{$base}.partials",
+            'modules' => "{$base}.modules",
+            'layouts' => "{$base}.layouts",
+            'pages' => "{$base}.pages",
+        ];
+    }
+
+    protected function makeVariables(array $directories): array
+    {
+        $base = $directories['base'];
+
+        return [
+            '__system__' => '_system.',
+            '__base__' => $base . '.',
+            '__component__' => $directories['components'] . '.',
+            '__template__' => $directories['templates'] . '.',
+            '__partial__' => $directories['partials'] . '.',
+            '__layout__' => $directories['layouts'] . '.',
+            '__module__' => $directories['modules'] . '.',
+            '__page__' => $directories['pages'] . '.',
+        ];
     }
 
     /**
@@ -731,20 +860,15 @@ class ViewContextManager implements OctaneCompatible
     /**
      * Reset trạng thái instance (Octane compatibility)
      * 
-     * LƯU Ý: KHÔNG reset contexts vì chúng cần được giữ lại giữa các requests
-     * Contexts được đăng ký từ phía web và có thể được cập nhật động (ví dụ: khi đổi theme)
-     * 
-     * Shared data được reset sau mỗi request (request-specific state)
+     * Registry state is worker-wide. View overrides and shared data belong to
+     * the current request and must never survive a scoped lifecycle.
      * 
      * @return void
      */
     public function resetInstanceState(): void
     {
-        // KHÔNG reset contexts - giữ lại để có thể update động
-        // Contexts là persistent state, không phải request-specific state
-
-        // Reset shared data sau mỗi request
-        // $this->sharedData = [];
+        $this->contextViewOverrides = [];
+        $this->sharedData = [];
     }
 
     /**

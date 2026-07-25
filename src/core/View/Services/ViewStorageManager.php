@@ -62,6 +62,7 @@ class ViewStorageManager
         $this->registeredResources = [];
         $this->viewStorage = [];
         $this->eventRegistry = [];
+        $this->systemData = [];
         $this->markerRegistery = [];
     }
 

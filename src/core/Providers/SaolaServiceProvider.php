@@ -3,6 +3,7 @@ namespace Saola\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Saola\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextRegistry;
 use Saola\Core\View\Services\ViewHelperService;
 use Saola\Core\View\Services\ViewStorageManager;
 
@@ -21,18 +22,21 @@ class SaolaServiceProvider extends ServiceProvider
 
         $this->registerConfigAliases();
 
-        // Đăng ký ViewContextManager như singleton
-        // Đảm bảo contexts được giữ lại giữa các requests trong Octane
-        // Contexts có thể được cập nhật động (ví dụ: khi admin đổi theme)
-        $this->app->singleton(ViewContextManager::class, function ($app) {
-            return new ViewContextManager();
+        // Registry chứa cấu hình ổn định của worker; manager chứa lựa chọn view
+        // theo request nên phải là scoped để an toàn với Octane.
+        $this->app->singleton(ViewContextRegistry::class, function () {
+            return new ViewContextRegistry();
         });
 
-        $this->app->singleton(ViewStorageManager::class, function ($app) {
+        $this->app->scoped(ViewContextManager::class, function ($app) {
+            return new ViewContextManager($app->make(ViewContextRegistry::class));
+        });
+
+        $this->app->scoped(ViewStorageManager::class, function ($app) {
             return new ViewStorageManager();
         });
 
-        $this->app->singleton(ViewHelperService::class, function ($app) {
+        $this->app->scoped(ViewHelperService::class, function ($app) {
             return new ViewHelperService($app->make(ViewStorageManager::class));
         });
 
