@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 use Saola\Core\Engines\ViewContextManager;
+use Saola\Core\View\Services\ViewHelperService;
 
 trait ResponseMethods
 {
@@ -61,7 +62,10 @@ trait ResponseMethods
             !$bladePath || $forceJson
         );
         if ($wantsJson) {
-            return $this->jsonResponse($data, $status, $headers, $jsonOptions, $bladePath);
+            return $this->jsonResponse($data, $status, $headers, $jsonOptions, $bladePath, [
+                ...$options,
+                'includeView' => $includeView,
+            ]);
         }
 
         return $this->renderResponse($bladePath, $data);
@@ -104,7 +108,14 @@ trait ResponseMethods
      * @param string|null $bladePath Đường dẫn blade để render HTML (optional)
      * @return JsonResponse
      */
-    protected function jsonResponse(array $data, int $status = 200, array $headers = [], int $jsonOptions = JSON_UNESCAPED_UNICODE, ?string $bladePath = null): JsonResponse
+    protected function jsonResponse(
+        array $data,
+        int $status = 200,
+        array $headers = [],
+        int $jsonOptions = JSON_UNESCAPED_UNICODE,
+        ?string $bladePath = null,
+        array $options = [],
+    ): JsonResponse
     {
         // Nếu có bladePath, render view và thêm vào response
         $responseData = ['data' => $data];
@@ -123,6 +134,43 @@ trait ResponseMethods
                 $responseData['view'] = null;
                 $responseData['view_error'] = 'Không thể render view: ' . $e->getMessage();
             }
+        }
+
+        $request = request();
+        $clientRevision = $request->header('X-Saola-View-Revision');
+        $syncRequested = (bool) ($options['syncViewContext'] ?? ($clientRevision !== null));
+        $context = $options['viewContext']
+            ?? ($this->context ?? null)
+            ?? $request->attributes->get('spa_scope');
+
+        if ($syncRequested && is_string($context) && $context !== '') {
+            $helper = app(ViewHelperService::class);
+            $state = $helper->exportViewContext($context);
+            $revision = $state['revision'];
+            $changed = !is_string($clientRevision) || !hash_equals($revision, $clientRevision);
+            $routeName = $request->route()?->getName();
+            $component = $routeName
+                ? $helper->resolveRouteComponent($context, $routeName)
+                : null;
+
+            $responseData['viewContext'] = [
+                'context' => $context,
+                'views' => $state['views'],
+                'revision' => $revision,
+                'changed' => $changed,
+                'component' => $component,
+            ];
+
+            if ($changed) {
+                $responseData['viewContext']['systemData'] = $state['systemData'];
+                $responseData['viewContext']['routes'] = $state['routes'];
+            }
+
+            if (($options['includeView'] ?? true) && !$bladePath && $component) {
+                $responseData['view'] = $component;
+            }
+
+            $headers['X-Saola-View-Revision'] = $revision;
         }
 
         // Merge headers mặc định

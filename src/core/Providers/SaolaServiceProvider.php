@@ -37,7 +37,10 @@ class SaolaServiceProvider extends ServiceProvider
         });
 
         $this->app->scoped(ViewHelperService::class, function ($app) {
-            return new ViewHelperService($app->make(ViewStorageManager::class));
+            return new ViewHelperService(
+                $app->make(ViewStorageManager::class),
+                $app->make(ViewContextManager::class),
+            );
         });
 
         $this->app->register(ViewContextServiceProvider::class);

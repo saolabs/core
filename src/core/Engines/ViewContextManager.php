@@ -127,7 +127,7 @@ class ViewContextManager implements OctaneCompatible
         return $this;
     }
 
-    public function registerContextViewByRoute(string $context, string $route, string $viewPath, ?string $shortcut = null): self
+    public function registerContextViewByRoute(string $context, string $route, string|array $viewPath, ?string $shortcut = null): self
     {
         $contextConfig = $this->registry->get($context);
         if ($contextConfig !== null) {
@@ -149,7 +149,11 @@ class ViewContextManager implements OctaneCompatible
         if($type === 'shortcut' && isset($config['routeViews'][$route]['shortcut'])) {
             return $config['routeViews'][$route]['shortcut'];
         }
-        return $config['routeViews'][$route]['view'] ?? null;
+        $registered = $config['routeViews'][$route]['view'] ?? null;
+        if (is_array($registered)) {
+            return $this->resolveRouteComponent($context, $registered);
+        }
+        return $registered;
     }
 
     /**
@@ -568,6 +572,100 @@ class ViewContextManager implements OctaneCompatible
         }
 
         return $this->resolvePath($context, $module, $blade, '');
+    }
+
+    /**
+     * Materialize a worker-stable logical route descriptor for this request.
+     * Automatic descriptors are resolved in priority order against the active
+     * context views, without ever mutating the shared route registry.
+     */
+    public function resolveRouteComponent(string $context, string|array|null $component): ?string
+    {
+        if ($component === null || $component === '') {
+            return null;
+        }
+
+        if (is_string($component)) {
+            if (str_starts_with($component, '@')) {
+                return $this->resolveLogicalRouteCandidate($context, $component);
+            }
+
+            // Backward compatibility for route registries created before
+            // logical descriptors: rebase "web.*" onto the active request
+            // context, but leave explicit raw registry keys untouched.
+            $registeredBase = $this->registry->get($context)['directories']['base'] ?? $context;
+            $activeBase = $this->getBaseDirectory($context, 'base') ?? $registeredBase;
+            if ($component === $registeredBase) {
+                return $activeBase;
+            }
+            if (str_starts_with($component, $registeredBase . '.')) {
+                return $activeBase . substr($component, strlen($registeredBase));
+            }
+
+            return $component;
+        }
+
+        $candidates = $component['candidates'] ?? [];
+        if (!$candidates && isset($component['logical'])) {
+            $candidates = [$component['logical']];
+        }
+
+        foreach ($candidates as $candidate) {
+            if (!is_string($candidate) || $candidate === '') {
+                continue;
+            }
+            $resolved = $this->resolveLogicalRouteCandidate($context, $candidate);
+            if (view()->exists($resolved)) {
+                return $resolved;
+            }
+        }
+
+        if (($component['kind'] ?? null) === 'auto') {
+            return null;
+        }
+
+        $logical = $component['logical'] ?? ($candidates[0] ?? null);
+        return is_string($logical) && $logical !== ''
+            ? $this->resolveLogicalRouteCandidate($context, $logical)
+            : null;
+    }
+
+    protected function resolveLogicalRouteCandidate(string $context, string $candidate): string
+    {
+        if (preg_match('/^@module[\.:](.+)$/i', $candidate, $matches)) {
+            $parts = explode('.', $matches[1]);
+            $blade = array_pop($parts);
+            return $this->resolvePath($context, implode('.', $parts), $blade, 'modules');
+        }
+
+        return $this->resolvePathByAlias($context, '', $candidate);
+    }
+
+    /**
+     * Stable fingerprint of the effective request-scoped view selection.
+     */
+    public function getContextViewRevision(string $context): string
+    {
+        $payload = [
+            'context' => $context,
+            'directories' => $this->getContextDirectories($context) ?? [],
+            'variables' => $this->getContextVariables($context) ?? [],
+        ];
+
+        return substr(hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES)), 0, 16);
+    }
+
+    public function exportContextState(string $context): array
+    {
+        return [
+            'context' => $context,
+            'views' => $this->getContextViews($context),
+            'revision' => $this->getContextViewRevision($context),
+            'systemData' => array_merge(
+                $this->getContextVariables($context) ?? [],
+                ['__context__' => $context]
+            ),
+        ];
     }
 
     public function resolvePathByRoute(string $context, string $route): string

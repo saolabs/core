@@ -49,6 +49,7 @@ class SPA
                 self::$routes[$context] = [];
             }
             self::$routes[$context][] = [
+                'context' => $context,
                 'name' => $name,
                 'path' => $path,
                 'params' => $params,

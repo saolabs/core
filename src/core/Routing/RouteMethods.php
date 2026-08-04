@@ -405,45 +405,58 @@ trait RouteMethods
     {
         $parentModule = $this->data['parent_module'] ?? null;
         $currentModule = $this->data['module'] ?? null;
-        $base = $this->data['context'] ?? '';
+        $context = $this->data['context'] ?? System::WEB;
         $blade = $this->data['view'] ?? null;
         $vcm = app(ViewContextManager::class);
+
         if (!$blade) {
-            if ($route && ($b = $vcm->routeToViewPathConfig($this->data['context'], $route))) {
-                $blade = $b['shortcut'] ?? null;
-                if ($b['view'] ?? null) {
-                    $vcm->registerContextViewByRoute($this->data['context'], $route, $b['view'] ?? null, $b['shortcut'] ?? null);
-                    return $b['view'];
-                }
-            } else {
-                return null;    
+            if (!$route) {
+                return null;
             }
+
+            // Automatic routes keep every logical candidate. The concrete view
+            // is selected later from the request-scoped view context; resolving
+            // it while routes boot would freeze the worker's default theme.
+            $parts = explode('.', $route);
+            if (($parts[0] ?? null) !== $context || count($parts) < 2) {
+                return null;
+            }
+            array_shift($parts);
+            $bladeName = array_pop($parts);
+            $candidates = [];
+            if ($parts) {
+                $relative = implode('.', [...$parts, $bladeName]);
+                $candidates[] = '@MODULE:' . $relative;
+                $candidates[] = '@PAGE:' . $relative;
+                $candidates[] = '@BASE:' . $relative;
+            } else {
+                $candidates[] = '@PAGE:' . $bladeName;
+                $candidates[] = '@BASE:' . $bladeName;
+            }
+
+            $descriptor = ['kind' => 'auto', 'logical' => $candidates[0], 'candidates' => $candidates];
+            $vcm->registerContextViewByRoute($context, $route, $descriptor);
+            return $descriptor;
         }
+
         if (str_starts_with($blade, '@MODULE:')) {
             $view = str_replace('@MODULE:', '', $blade);
-            $base = ($base ? $base . '.' : '') . 'modules';
+            $module = '';
             if ($currentModule && $parentModule) {
-                $base = $base . '.' . $parentModule . '.' . $currentModule;
+                $module = $parentModule . '.' . $currentModule;
             } else {
-                $base = $base . '.' . $parentModule . $currentModule;
+                $module = (string) ($parentModule . $currentModule);
             }
-            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $view, $blade);
-            return $base . '.' . $view;
-        } else if (str_starts_with($blade, '@PAGE:')) {
-            $view = str_replace('@PAGE:', '', $blade);
-            $base = ($base ? $base . '.' : '') . 'pages';
-
-            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $view, $blade);
-            return $base . '.' . $view;
-        } else if (str_starts_with($blade, '@BASE:')) {
-            $view = str_replace('@BASE:', $base . '.', $blade);
-            $vcm->registerContextViewByRoute($this->data['context'], $route, $view, $blade);
-            return $view;
-        } else if ($base) {
-            $vcm->registerContextViewByRoute($this->data['context'], $route, $base . '.' . $blade, null);
-            return $base . '.' . $blade;
+            $logical = '@MODULE:' . ($module ? $module . '.' : '') . $view;
+        } elseif (preg_match('/^@(PAGE|BASE|COMPONENT|PARTIAL|LAYOUT|TEMPLATE)[\.:]/i', $blade)) {
+            $logical = $blade;
+        } else {
+            $logical = '@BASE:' . $blade;
         }
-        return $blade;
+
+        $descriptor = ['kind' => 'explicit', 'logical' => $logical, 'candidates' => [$logical]];
+        $vcm->registerContextViewByRoute($context, $route, $descriptor);
+        return $descriptor;
     }
 
 

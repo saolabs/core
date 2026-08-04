@@ -5,6 +5,9 @@ namespace Tests\Unit;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Engines\ViewContextRegistry;
 use Saola\Core\Providers\SaolaServiceProvider;
+use Saola\Core\Support\SPA;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\View\Services\ViewHelperService;
 use Saola\Core\View\Services\ViewStorageManager;
 use Tests\TestCase;
 
@@ -94,5 +97,105 @@ class ViewContextRuntimeTest extends TestCase
         $storage->reset();
 
         $this->assertSame([], $storage->exportSystemData());
+    }
+
+    public function test_static_route_descriptors_are_materialized_per_request_context(): void
+    {
+        SPA::resetRoutes();
+        SPA::active();
+        SPA::addRoute('web', 'web.todo.index', '/todo', [
+            'kind' => 'explicit',
+            'logical' => '@MODULE:todo.index',
+            'candidates' => ['@MODULE:todo.index'],
+        ]);
+        SPA::inactive();
+
+        $registry = new ViewContextRegistry();
+        $first = new ViewContextManager($registry);
+        $first->registerContext('web', ['base' => 'web']);
+        $first->setContextViews('web', 'themes.first');
+        $firstRoutes = (new ViewHelperService(new ViewStorageManager(), $first))
+            ->exportComponentRoutes('web');
+
+        $second = new ViewContextManager($registry);
+        $second->setContextViews('web', 'themes.second');
+        $secondRoutes = (new ViewHelperService(new ViewStorageManager(), $second))
+            ->exportComponentRoutes('web');
+
+        $this->assertSame('@MODULE:todo.index', SPA::getComponentRoutes('web')[0]['component']['logical']);
+        $this->assertSame('web', $firstRoutes[0]['context']);
+        $this->assertSame('@MODULE:todo.index', $firstRoutes[0]['logicalComponent']);
+        $this->assertSame('themes.first.modules.todo.index', $firstRoutes[0]['component']);
+        $this->assertSame('themes.second.modules.todo.index', $secondRoutes[0]['component']);
+        $this->assertNotSame(
+            $first->getContextViewRevision('web'),
+            $second->getContextViewRevision('web')
+        );
+    }
+
+    public function test_legacy_concrete_route_paths_are_rebased_without_mutating_registry(): void
+    {
+        $registry = new ViewContextRegistry();
+        $manager = new ViewContextManager($registry);
+        $manager->registerContext('web', ['base' => 'web']);
+        $manager->registerContextViewByRoute('web', 'web.home', 'web.pages.home');
+        $manager->setContextViews('web', 'themes.storefront');
+
+        $this->assertSame(
+            'themes.storefront.pages.home',
+            $manager->resolveRouteComponent('web', 'web.pages.home')
+        );
+        $this->assertSame('web.pages.home', $registry->get('web')['routeViews']['web.home']['view']);
+    }
+
+    public function test_json_response_only_sends_materialized_routes_when_revision_changes(): void
+    {
+        $manager = $this->app->make(ViewContextManager::class);
+        if (!$manager->hasContext('web')) {
+            $manager->registerContext('web', ['base' => 'web']);
+        }
+        $manager->setContextViews('web', 'themes.storefront');
+        $this->app->instance(ViewContextManager::class, $manager);
+        $this->app->instance(
+            ViewHelperService::class,
+            new ViewHelperService(new ViewStorageManager(), $manager)
+        );
+
+        SPA::resetRoutes();
+        SPA::active();
+        SPA::addRoute('web', 'web.home', '/', [
+            'kind' => 'explicit',
+            'logical' => '@PAGE:home',
+            'candidates' => ['@PAGE:home'],
+        ]);
+        SPA::inactive();
+
+        $route = (new \Illuminate\Routing\Route(['GET'], '/', fn () => null))->name('web.home');
+        $request = \Illuminate\Http\Request::create('/', 'GET', server: [
+            'HTTP_X_SAOLA_VIEW_REVISION' => 'stale-revision',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $request->setRouteResolver(fn () => $route);
+        $this->app->instance('request', $request);
+
+        $controller = new class {
+            use ResponseMethods;
+            protected string $context = 'web';
+        };
+        $changed = $controller->response(['ok' => true], null, ['forceJson' => true]);
+        $payload = $changed->getData(true);
+
+        $this->assertTrue($payload['viewContext']['changed']);
+        $this->assertSame('themes.storefront.pages.home', $payload['viewContext']['component']);
+        $this->assertSame('themes.storefront.pages.home', $payload['viewContext']['routes'][0]['component']);
+        $this->assertSame('themes.storefront.pages.home', $payload['view']);
+
+        $request->headers->set('X-Saola-View-Revision', $payload['viewContext']['revision']);
+        $unchanged = $controller->response(['ok' => true], null, ['forceJson' => true]);
+        $unchangedPayload = $unchanged->getData(true);
+
+        $this->assertFalse($unchangedPayload['viewContext']['changed']);
+        $this->assertArrayNotHasKey('routes', $unchangedPayload['viewContext']);
+        $this->assertArrayNotHasKey('systemData', $unchangedPayload['viewContext']);
     }
 }

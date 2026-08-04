@@ -2,6 +2,7 @@
 
 namespace Saola\Core\View\Services;
 
+use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Support\SPA;
 
 class ViewHelperService
@@ -11,7 +12,10 @@ class ViewHelperService
     protected $subscribePrefix = "data-yield-";
     protected $funtionalTemplates = [];
 
-    public function __construct(protected ViewStorageManager $viewStorageManager)
+    public function __construct(
+        protected ViewStorageManager $viewStorageManager,
+        protected ?ViewContextManager $viewContextManager = null,
+    )
     {
     }
 
@@ -316,11 +320,63 @@ class ViewHelperService
     }
 
     public function exportSpaRoutes($context = null){
-        return SPA::getRoutes($context);
+        return $this->materializeRoutes(SPA::getRoutes($context), $context);
     }
 
     public function exportComponentRoutes($context = null){
-        return SPA::getComponentRoutes($context);
+        return $this->materializeRoutes(SPA::getComponentRoutes($context), $context, true);
+    }
+
+    public function exportViewContext(string $context): array
+    {
+        $state = $this->getViewContextManager()->exportContextState($context);
+        $state['routes'] = $this->exportSpaRoutes($context);
+        return $state;
+    }
+
+    public function resolveRouteComponent(string $context, string $routeName): ?string
+    {
+        foreach ($this->exportComponentRoutes($context) as $route) {
+            if (($route['name'] ?? null) === $routeName) {
+                return $route['component'] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    protected function materializeRoutes(array $routes, ?string $context = null, bool $componentOnly = false): array
+    {
+        $manager = $this->getViewContextManager();
+
+        $materialized = array_map(function (array $route) use ($manager, $context) {
+            $routeContext = $route['context'] ?? $context;
+            $component = $route['component'] ?? null;
+            if (!$routeContext || !$component) {
+                return $route;
+            }
+
+            $route['logicalComponent'] = is_array($component)
+                ? ($component['logical'] ?? null)
+                : $component;
+            $route['component'] = $manager->resolveRouteComponent($routeContext, $component);
+            return $route;
+        }, $routes);
+
+        if ($componentOnly) {
+            $materialized = array_filter(
+                $materialized,
+                static fn (array $route) => is_string($route['component'] ?? null)
+                    && $route['component'] !== ''
+            );
+        }
+
+        return array_values($materialized);
+    }
+
+    protected function getViewContextManager(): ViewContextManager
+    {
+        return $this->viewContextManager ??= app(ViewContextManager::class);
     }
 
     public function addReactiveRegistry($type, $registryID, $stateKeys, $options = []){
