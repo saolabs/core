@@ -26,7 +26,7 @@ use Illuminate\Http\JsonResponse;
  * - jsonNoContent() - HTTP 204
  * - jsonValidationError($errors, $message) - HTTP 422
  * 
- * @property \One\App\Services\ModuleService $service
+ * @property \Saola\Core\Services\ModuleService $service
  */
 class {{ModuleName}}Controller extends ApiController
 {

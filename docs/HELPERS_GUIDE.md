@@ -62,7 +62,7 @@ Kiểm tra kết nối hiện tại có phải là HTTPS không.
 ## Xử lý Mảng và Đối tượng
 
 ### `crazy_arr($array = null)`
-Tạo đối tượng `CrazyArr` (One\Core\Magic\Arr).
+Tạo đối tượng `CrazyArr` (Saola\Core\Magic\Arr).
 
 ### `object_to_array($d)`
 Chuyển đổi object (và các object lồng nhau) thành mảng.

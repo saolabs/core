@@ -17,13 +17,13 @@ Tài liệu này mô tả các thay đổi và cải tiến gần đây trong Co
 Tất cả Methods traits đã được di chuyển từ `Services\Methods` sang `Support\Methods`:
 
 ```php
-// ❌ Cũ (không còn sử dụng)
-use One\Core\Services\Methods\ViewMethods;
-use One\Core\Services\Methods\ResponseMethods;
+// ❌ Cũ
+use Saola\Core\Services\Methods\ViewMethods;
+use Saola\Core\Services\Methods\ResponseMethods;
 
 // ✅ Mới
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
 ```
 
 ---
@@ -37,8 +37,8 @@ ViewMethods đã được refactor để sử dụng `ViewContextManager` từ s
 ### **Cách Sử Dụng**
 
 ```php
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
@@ -124,9 +124,9 @@ ResponseMethods tự động quyết định trả về View hoặc JSON dựa t
 ### **Cách Sử Dụng**
 
 ```php
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ResponseMethods;
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
@@ -295,8 +295,8 @@ Method mới để thực hiện operations với repository một cách an toà
 ### **Cách Sử Dụng**
 
 ```php
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ModuleMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ModuleMethods;
 
 class UserService extends ModuleService
 {
@@ -391,11 +391,11 @@ Tất cả các method CRUD đã được cập nhật để sử dụng `reposi
 Tìm và thay thế tất cả:
 
 ```php
-// Tìm
-use One\Core\Services\Methods\
+// Cũ
+use Saola\Core\Services\Methods\...
 
-// Thay bằng
-use One\Core\Support\Methods\
+// Mới
+use Saola\Core\Support\Methods\...
 ```
 
 ### **Bước 2: Cập Nhật Method Names**
@@ -411,9 +411,9 @@ $this->initView()
 ### **Bước 3: Cập Nhật Service Classes**
 
 ```php
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
 
 class UserService extends ModuleService
 {
@@ -458,10 +458,10 @@ class UserService extends ModuleService
 **Giải pháp:**
 ```php
 // Sửa từ
-use One\Core\Services\Methods\ViewMethods;
+use Saola\Core\Services\Methods\ViewMethods; // ❌ Cũ
 
-// Thành
-use One\Core\Support\Methods\ViewMethods;
+// Sau
+use Saola\Core\Support\Methods\ViewMethods; // ✅ Mới
 ```
 
 ### **Lỗi: Method viewInit() not found**

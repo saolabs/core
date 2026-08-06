@@ -1,8 +1,8 @@
-# HƯỚNG DẪN SỬ DỤNG THƯ VIỆN One
+# HƯỚNG DẪN SỬ DỤNG THƯ VIỆN Saola Core
 
 ## GIỚI THIỆU
 
-One là thư viện hỗ trợ phát triển ứng dụng Laravel nhanh chóng và bảo mật. Thư viện cung cấp các thành phần như Service, Model, Repository, Helper và nhiều tiện ích khác giúp tăng hiệu suất, đảm bảo bảo mật và đơn giản hóa quá trình phát triển.
+Saola Core là thư viện hỗ trợ phát triển ứng dụng Laravel nhanh chóng và bảo mật trong hệ sinh thái Saola. Thư viện cung cấp các thành phần như Service, Model, Repository, Helper và nhiều tiện ích khác giúp tăng hiệu suất, đảm bảo bảo mật và đơn giản hóa quá trình phát triển.
 
 ### Tính năng nổi bật
 - Service, Repository, Model mở rộng
@@ -15,21 +15,21 @@ One là thư viện hỗ trợ phát triển ứng dụng Laravel nhanh chóng v
 ## CÀI ĐẶT
 
 ### Yêu cầu hệ thống
-- PHP 8.1 trở lên
-- Laravel 11.0 hoặc 12.0 trở lên
+- PHP 8.2 trở lên
+- Laravel 12.0 hoặc 13.0 trở lên
 
 ### Cài đặt qua Composer
 ```bash
-composer require one/core
+composer require saola/core
 ```
 
 ## CẤU HÌNH
 
-Thư viện tự động đăng ký `OneServiceProvider`. Bạn cũng có thể thêm thủ công trong `config/app.php`:
+Thư viện tự động đăng ký `SaolaServiceProvider`. Bạn cũng có thể thêm thủ công trong `config/app.php`:
 
 ```php
 'providers' => [
-    One\Providers\OneServiceProvider::class,
+    Saola\Core\Providers\SaolaServiceProvider::class,
 ],
 ```
 
@@ -59,7 +59,7 @@ Repository Pattern giúp tách biệt logic truy cập dữ liệu:
 ```php
 // Sử dụng Dependency Injection
 public function __construct(
-    private \One\Repositories\UserRepository $userRepo
+    private \Saola\Core\Repositories\UserRepository $userRepo
 ) {}
 
 // Các thao tác dữ liệu
@@ -74,19 +74,19 @@ $newUser = $this->userRepo->create([
 Hoặc thông qua Service Container:
 
 ```php
-$userRepo = app(\One\Repositories\UserRepository::class);
+$userRepo = app(\Saola\Core\Repositories\UserRepository::class);
 $users = $userRepo->paginate(20);
 ```
 
 ### 3. Model Concerns
 
-One cung cấp nhiều traits để mở rộng Eloquent Models:
+Saola Core cung cấp nhiều traits để mở rộng Eloquent Models:
 
 ```php
 use Illuminate\Database\Eloquent\Model;
-use One\Concerns\HasUuid;
-use One\Concerns\HasSlug;
-use One\Concerns\HasMetadata;
+use Saola\Core\Concerns\HasUuid;
+use Saola\Core\Concerns\HasSlug;
+use Saola\Core\Concerns\HasMetadata;
 
 class Product extends Model
 {
@@ -107,7 +107,7 @@ Services giúp tách biệt logic nghiệp vụ:
 ```php
 // Sử dụng qua Dependency Injection
 public function __construct(
-    private \One\Services\EmailService $emailService
+    private \Saola\Core\Services\EmailService $emailService
 ) {}
 
 // Gọi các phương thức service
@@ -120,7 +120,7 @@ $this->emailService->sendPasswordResetNotification($user, $token);
 Chuẩn hóa dữ liệu trả về từ API:
 
 ```php
-use One\Http\Resources\ApiResource;
+use Saola\Core\Http\Resources\ApiResource;
 
 class UserResource extends ApiResource
 {
@@ -157,8 +157,8 @@ Khi ứng dụng Laravel chạy với Octane, trạng thái tĩnh có thể bị
 Để đảm bảo lớp của bạn tương thích với Octane, hãy triển khai OctaneCompatible interface và sử dụng OctaneCompatibleMethods trait:
 
 ```php
-use One\Contracts\OctaneCompatible;
-use One\Concerns\OctaneCompatibleMethods;
+use Saola\Core\Contracts\OctaneCompatible;
+use Saola\Core\Concerns\OctaneCompatibleMethods;
 
 class YourService implements OctaneCompatible
 {
@@ -186,8 +186,8 @@ Lớp này sẽ tự động được xử lý bởi OctaneServiceProvider, đ�
 Bạn có thể ghi đè các phương thức từ trait để tùy chỉnh logic reset:
 
 ```php
-use One\Contracts\OctaneCompatible;
-use One\Concerns\OctaneCompatibleMethods;
+use Saola\Core\Contracts\OctaneCompatible;
+use Saola\Core\Concerns\OctaneCompatibleMethods;
 
 class CustomCacheService implements OctaneCompatible
 {
@@ -250,7 +250,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Post;
 use App\Http\Resources\PostResource;
-use One\Repositories\PostRepository;
+use Saola\Core\Repositories\PostRepository;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
@@ -295,9 +295,9 @@ class PostController extends Controller
 ```php
 namespace App\Services;
 
-use One\Services\Service;
-use One\Contracts\OctaneCompatible;
-use One\Concerns\OctaneCompatibleMethods;
+use Saola\Core\Services\Service;
+use Saola\Core\Contracts\OctaneCompatible;
+use Saola\Core\Concerns\OctaneCompatibleMethods;
 use App\Repositories\OrderRepository;
 use App\Repositories\PaymentRepository;
 

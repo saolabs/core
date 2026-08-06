@@ -12,7 +12,7 @@ Hệ thống Macro cho phép bạn tạo các method động và xử lý attrib
 Service mặc định đã include cả hai traits:
 
 ```php
-use One\Core\Services\Service;
+use Saola\Core\Services\Service;
 
 class MyService extends Service
 {

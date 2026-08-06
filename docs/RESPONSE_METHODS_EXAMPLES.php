@@ -9,9 +9,9 @@
 namespace App\Services\Examples;
 
 use Illuminate\Http\Request;
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ResponseMethods;
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 // ============================================
 // VÍ DỤ 1: Service Cơ Bản

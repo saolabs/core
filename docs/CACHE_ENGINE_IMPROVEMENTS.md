@@ -139,7 +139,7 @@ $key = CacheEngine::getKey('users', [
 ### 1. Với Request Object
 ```php
 use Illuminate\Http\Request;
-use One\Core\Engines\CacheEngine;
+use Saola\Core\Engines\CacheEngine;
 
 // Trong controller
 public function index(Request $request)

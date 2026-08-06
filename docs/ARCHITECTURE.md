@@ -14,12 +14,13 @@ Saola là framework full-stack cho phép xây dựng ứng dụng Laravel + Type
 │  │                  │  Blade output  │  - Repository Pattern       │ │
 │  │  .sao ──────────▶│──────────────▶│  - Service Layer            │ │
 │  │       └──────────│── JS output    │  - Magic Classes            │ │
-│  └──────────────────┘       │        │  - Routing / Modules        │ │
+│  │                  │                │  - Module Routing           │ │
+│  └──────────────────┘       │        │  - View Context Manager     │ │
 │                             │        │  - Cache / Event Systems    │ │
-│                             ▼        │  - Blade Directives         │ │
-│                   ┌──────────────┐   └───────────────┬─────────────┘ │
-│                   │ saola-client │                   │ SSR HTML       │
-│                   │ (TypeScript) │◀──────────────────┘               │
+│                             ▼        └───────────────┬─────────────┘ │
+│                   ┌──────────────┐                   │ SSR HTML       │
+│                   │ saola-client │◀──────────────────┘               │
+│                   │ (TypeScript) │                                   │
 │                   │              │                                   │
 │                   │ - Reactive   │                                   │
 │                   │   views      │                                   │
@@ -33,7 +34,7 @@ Saola là framework full-stack cho phép xây dựng ứng dụng Laravel + Type
 
 | Package | Language | Vai trò |
 |---|---|---|
-| `saola/core` | PHP 8.1+ | Laravel backend core: repository, service, routing, views, events, caching |
+| `saola/core` | PHP 8.2+ | Laravel backend core: repository, service, routing, views, events, caching |
 | `saola-compiler` | Node.js + Python | Biên dịch `.sao` templates → Blade (SSR) + JavaScript (CSR) |
 | `saola-client` | TypeScript | Runtime client: reactive views, state, hydration, SPA lifecycle |
 
@@ -45,57 +46,37 @@ Saola là framework full-stack cho phép xây dựng ứng dụng Laravel + Type
 saola/core/
 ├── composer.json
 ├── src/
-│   ├── App/                           # Saola\Core\App namespace
-│   │   ├── Console/Commands/          # Artisan commands
-│   │   ├── Contracts/                 # App-level interfaces
-│   │   ├── Database/
-│   │   │   ├── Repositories/          # App repository implementations
-│   │   │   └── Services/              # App service implementations
-│   │   ├── Exceptions/                # Exception handlers
-│   │   ├── Http/
-│   │   │   ├── Controllers/           # Base controllers
-│   │   │   └── Middleware/            # HTTP middleware
-│   │   ├── Providers/                 # Laravel service providers
-│   │   ├── Routing/                   # Module routing (Action, Module, Router)
-│   │   ├── Services/                  # Base service classes
-│   │   ├── Support/                   # Helpers, traits, validation rules
-│   │   └── View/                      # View composers, compilers, services
-│   │
-│   ├── core/                          # Saola\Core namespace
+│   ├── config/                        # Published configuration (saola.php)
+│   ├── core/                          # Saola\Core namespace (PSR-4)
 │   │   ├── Async/                     # Async/parallel utilities
 │   │   ├── Concerns/                  # Model traits (HasUuid, HasSlug, ...)
 │   │   ├── Console/                   # Core Artisan commands
 │   │   ├── Contracts/                 # Core interfaces
 │   │   ├── Crawlers/                  # Web crawlers
 │   │   ├── Database/                  # DB utilities, query helpers
-│   │   ├── Engines/                   # ShortCode, Cache, DCrypt, JSON engines
-│   │   ├── Events/                    # Event system
+│   │   ├── Engines/                   # ShortCode, Cache, DCrypt, ViewContextManager
+│   │   ├── Events/                    # Event system (EventMethods)
+│   │   ├── Exceptions/                # Custom exceptions
 │   │   ├── Files/                     # File management
-│   │   ├── Html/                      # HTML builder, form builder, DOM
+│   │   ├── Html/                      # HTML, Form, Menu builders
 │   │   ├── Http/                      # HTTP client, CURL, promises
 │   │   ├── Languages/                 # i18n, locale management
 │   │   ├── Laravel/                   # Laravel-specific integrations
 │   │   ├── Magic/                     # Arr, Str, Any magic classes
-│   │   ├── Mailer/                    # Mail system
-│   │   ├── Masks/                     # Data masking
+│   │   ├── Mailer/                    # Mailer & alert system
+│   │   ├── Masks/                     # Data masking & transformation
 │   │   ├── Models/                    # Base Eloquent models
 │   │   ├── Promise/                   # Promise/async HTTP
-│   │   ├── Providers/                 # Core service providers
+│   │   ├── Providers/                 # SaolaServiceProvider
 │   │   ├── Queues/                    # Queue utilities
-│   │   ├── Repositories/              # Repository pattern base
-│   │   ├── Services/                  # Core service base classes
-│   │   ├── Support/                   # Core utility methods
+│   │   ├── Repositories/              # BaseRepository & CRUD/Filter actions
+│   │   ├── Routing/                   # Module routing (Action, Module, Router)
+│   │   ├── Services/                  # BaseService, ModuleService, ViewService
+│   │   ├── Support/                   # Utility helpers & Methods (ViewMethods, etc.)
 │   │   ├── System/                    # System-level utilities
 │   │   └── Validators/                # Validation extensions
-│   │
-│   ├── config/
-│   │   └── saola.php                  # Published config (từ one.php)
-│   │
-│   └── helpers/
-│       ├── __loader__.php             # Auto-loader
-│       ├── helpers.php                # Global helper functions
-│       └── utils.php                  # Utility functions
-│
+│   ├── helpers/                       # Global helpers (__loader__.php, helpers.php)
+│   └── templates/                     # Default templates
 └── tests/
     ├── TestCase.php
     ├── Feature/
@@ -106,38 +87,38 @@ saola/core/
 
 ## 3. Namespace Map
 
-### Trước → Sau
+### Chuẩn hóa Namespace
 
-| Trước | Sau |
+| Trước (Legacy) | Hiện tại (Chuẩn) |
 |---|---|
 | `One\Core\` | `Saola\Core\` |
-| `One\App\` | `Saola\Core\Framework\` |
-| `One\Core\Providers\OneServiceProvider` | `Saola\Core\Providers\SaolaServiceProvider` |
-| `One\App\Providers\OneServiceProvider` | `Saola\Core\Framework\Providers\SaolaAppServiceProvider` |
+| `OneServiceProvider` | `Saola\Core\Providers\SaolaServiceProvider` |
+| Config tag: `one-config` | Config tag: `saola-config` |
+| Package: `one/core` | Package: `saola/core` |
 
-### composer.json autoload
+### `composer.json` Autoload Configuration
 
 ```json
 {
   "autoload": {
     "psr-4": {
-      "Saola\\Core\\App\\": "src/core/Framework/",
       "Saola\\Core\\": "src/core/"
     },
     "files": [
       "src/helpers/__loader__.php"
+    ],
+    "classmap": [
+      "src/config/"
     ]
   }
 }
 ```
 
-> `Saola\Core\Framework\` tự động resolve vì `App/` nằm trong `src/core/`.
-
 ---
 
 ## 4. Luồng dữ liệu chính
 
-### Request → Response (SSR mode)
+### Request → Response (SSR & CSR Hydration Mode)
 
 ```
 HTTP Request
@@ -146,33 +127,35 @@ HTTP Request
 Laravel Router
     │
     ▼
-Saola\Core\Framework\Routing\Router       ← Module routing
+Saola\Core\Routing\Router                   ← Module routing
     │
     ▼
-Saola\Core\Framework\Http\Controllers\*   ← Base controller
+Saola\Core\Services\ModuleService          ← Business logic layer
     │
-    ├── Saola\Core\Repositories\*   ← Data layer
-    │       └── Saola\Core\Models\* ← Eloquent
+    ├── Saola\Core\Repositories\BaseRepository ← Data layer
+    │       └── Saola\Core\Models\*        ← Eloquent
     │
-    ├── Saola\Core\Framework\Services\*   ← Business logic
-    │
-    └── Saola\Core\Framework\View\*       ← View rendering
+    └── Saola\Core\Support\Methods\ResponseMethods ← Response decision
             │
-            ▼
-        .sao compiled Blade view    ← Output từ saola-compiler
+            ├── (X-Saola-Response: json / Accept: json) ──▶ JSON Response + ViewContext
             │
-            ▼
-        HTTP Response (HTML + embedded JSON state)
-            │
-            ▼
-        saola-client hydrates       ← TypeScript runtime
+            └── (Browser Request) ──▶ Blade View Render
+                    │
+                    ▼
+                .sao compiled Blade view    ← Output từ saola-compiler
+                    │
+                    ▼
+                HTTP Response (HTML + embedded JSON state)
+                    │
+                    ▼
+                saola-client hydrates       ← TypeScript runtime
 ```
 
 ### Template Lifecycle
 
 ```
 developer writes:         user.sao
-                              │
+                               │
                     saola-compiler compiles
                          ┌────┴────┐
                          ▼         ▼
@@ -190,9 +173,9 @@ developer writes:         user.sao
 
 ## 5. Design Principles
 
-1. **Zero Config by Default** — Service providers tự đăng ký đủ thứ
-2. **Octane-Safe** — Không có static state; dùng request-scoped bindings
-3. **PSR compliant** — PSR-4 autoload, PSR-7/15 HTTP interfaces
-4. **Decorator Pattern** — Magic classes (Arr, Str) bọc native PHP types
-5. **Repository over ActiveRecord** — Tách data access khỏi domain logic
-6. **Module-based Routing** — Routes được tổ chức theo module, không file route khổng lồ
+1. **Zero Config by Default** — Service provider tự đăng ký qua Laravel Auto-Discovery
+2. **Octane-Safe** — Hỗ trợ `Saola\Core\Contracts\OctaneCompatible` để dọn dẹp state giữa các request
+3. **PSR compliant** — PSR-4 autoloading chuẩn mực
+4. **Decorator Pattern** — Magic classes (`Arr`, `Str`) bọc native PHP types với phương thức linh hoạt
+5. **Repository Pattern** — Tách dữ liệu khỏi domain logic, tích hợp caching & filtering tự động
+6. **Module-based Routing** — Tự động tổ chức router theo modules với context quản lý view

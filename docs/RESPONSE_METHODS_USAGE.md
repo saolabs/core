@@ -15,9 +15,9 @@ Trait `ResponseMethods` giúp tự động quyết định trả về **View** h
 
 namespace App\Services;
 
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ResponseMethods;
-use One\Core\Support\Methods\ViewMethods; // Optional - nếu cần render view
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ViewMethods; // Optional - nếu cần render view
 
 class UserService extends ModuleService
 {
@@ -207,9 +207,9 @@ public function getUserList(Request $request)
 namespace App\Services;
 
 use Illuminate\Http\Request;
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ResponseMethods;
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
@@ -334,7 +334,7 @@ class UserController extends Controller
 curl -H "x-one-response: json" http://example.com/users
 
 # Hoặc các biến thể (đều hoạt động):
-curl -H "X-One-Response: JSON" http://example.com/users
+curl -H "X-Saola-Response: JSON" http://example.com/users
 curl -H "X-ONE-RESPONSE: Json" http://example.com/users
 ```
 

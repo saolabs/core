@@ -15,9 +15,9 @@ Hướng dẫn nhanh để sử dụng Core Framework với các tính năng m�
 
 namespace App\Services;
 
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
 use Illuminate\Http\Request;
 
 class UserService extends ModuleService
@@ -120,9 +120,9 @@ $user = $this->getDetail($id);
 
 namespace App\Services;
 
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
 use Illuminate\Http\Request;
 use App\Repositories\UserRepository;
 
@@ -272,10 +272,10 @@ public function initUser()
 
 ```php
 // ✅ Đúng
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
-// ❌ Sai
-use One\Core\Services\Methods\ViewMethods;
+// ❌ Sai (namespace cũ)
+use Saola\Core\Services\Methods\ViewMethods;
 ```
 
 ### **Lỗi: Method not found**

@@ -15,7 +15,7 @@ use Saola\Core\Services\ModuleService;
  * Service được tự động inject repository thông qua SmartInit trait
  * dựa trên module name: {{module_name}}
  * 
- * @property \One\Shared\Repositories\BaseRepository $repository
+ * @property \Saola\Core\Repositories\BaseRepository $repository
  */
 class {{ModuleName}}Service extends ModuleService
 {

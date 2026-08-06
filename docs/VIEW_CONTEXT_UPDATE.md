@@ -16,7 +16,7 @@ ViewContextManager được thiết kế để **KHÔNG bị reset** sau mỗi r
 ### 1. Cập Nhật Directories
 
 ```php
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 $contextManager = app(ViewContextManager::class);
 
@@ -134,7 +134,7 @@ class ThemeService extends Service
 ```php
 // Trong AppServiceProvider::boot()
 
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 $contextManager = app(ViewContextManager::class);
 
@@ -222,7 +222,7 @@ class TenantService extends Service
 
 ### 1. ViewContextManager Là Singleton
 
-ViewContextManager được đăng ký như singleton trong `OneServiceProvider`, đảm bảo:
+ViewContextManager được đăng ký như singleton trong `SaolaServiceProvider`, đảm bảo:
 - Cùng một instance giữa các requests trong Octane
 - Contexts được giữ lại sau mỗi request
 - Có thể cập nhật từ bất kỳ request nào

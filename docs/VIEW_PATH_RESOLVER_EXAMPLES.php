@@ -8,8 +8,8 @@
 
 namespace Examples;
 
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Engines\ViewPathResolver;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Engines\ViewPathResolver;
 
 // ============================================
 // Ví Dụ 1: Sử Dụng Cơ Bản

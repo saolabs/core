@@ -4,13 +4,13 @@
 
 ```
 src/core/
-├── Services/              # Service classes
+├── Services/              # Service classes (BaseService, ModuleService, ViewService)
 │   ├── Service.php        # Base service
 │   ├── ModuleService.php  # Service cho modules (CRUD)
 │   ├── ViewService.php    # Service cho views
 │   └── ThemeService.php   # Service cho themes
 │
-├── Support/Methods/       # Trait methods (đã di chuyển từ Services/Methods)
+├── Support/Methods/       # Trait methods (Support\Methods namespace)
 │   ├── ModuleMethods.php      # Methods cho module operations
 │   ├── CRUDMethods.php        # Methods cho CRUD operations
 │   ├── ViewMethods.php        # Methods cho view rendering
@@ -21,10 +21,10 @@ src/core/
 │   ├── SmartInit.php          # Auto initialization
 │   └── OneMacro.php           # Macro system
 │
-├── Repositories/          # Repository classes
-├── Validators/           # Validator classes
-├── Engines/              # Engine classes
-└── ...
+├── Repositories/          # BaseRepository & actions
+├── Validators/            # Validator classes
+├── Engines/               # Engine classes (ShortCode, ViewContextManager, etc.)
+└── Routing/               # Module, Router, Action
 ```
 
 ## 🔄 Thay Đổi Cấu Trúc
@@ -47,22 +47,20 @@ Support/Methods/
 └── ResponseMethods.php
 ```
 
-## 📦 Namespace Mới
+## 📦 Namespace Standard
 
-Tất cả các Methods traits đã được di chuyển sang namespace mới:
+Tất cả các Methods traits nằm trong namespace:
 
 ```php
-// ❌ Cũ (không còn sử dụng)
+// ❌ Cũ (phiên bản cũ/legacy)
 use One\Core\Services\Methods\ViewMethods;
 use One\Core\Services\Methods\ResponseMethods;
-use One\Core\Services\Methods\ModuleMethods;
-use One\Core\Services\Methods\CRUDMethods;
 
-// ✅ Mới
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
-use One\Core\Support\Methods\ModuleMethods;
-use One\Core\Support\Methods\CRUDMethods;
+// ✅ Hiện tại (Saola Core)
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Support\Methods\ModuleMethods;
+use Saola\Core\Support\Methods\CRUDMethods;
 ```
 
 ## 🎯 Cách Sử Dụng
@@ -70,14 +68,14 @@ use One\Core\Support\Methods\CRUDMethods;
 ### **ModuleService**
 
 ```php
-use One\Core\Services\ModuleService;
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\ResponseMethods;
+use Saola\Core\Services\ModuleService;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ResponseMethods;
 
 class UserService extends ModuleService
 {
     use ViewMethods, ResponseMethods;
-    
+
     public function initUser()
     {
         $this->setRepositoryClass(UserRepository::class);
@@ -89,8 +87,8 @@ class UserService extends ModuleService
 ### **ViewService**
 
 ```php
-use One\Core\Services\ViewService;
-use One\Core\Support\Methods\CacheMethods;
+use Saola\Core\Services\ViewService;
+use Saola\Core\Support\Methods\CacheMethods;
 
 class CustomViewService extends ViewService
 {
@@ -107,8 +105,6 @@ class CustomViewService extends ViewService
 
 ## ✅ Đã Cập Nhật
 
-- ✅ Tất cả namespace đã được cập nhật sang `Support\Methods`
-- ✅ Tất cả tài liệu đã được cập nhật
+- ✅ Namespace chuẩn hóa thành `Saola\Core\Support\Methods`
 - ✅ Method `viewInit()` đã đổi thành `initView()`
 - ✅ Cấu trúc mới đã được phản ánh trong tài liệu
-

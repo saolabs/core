@@ -27,8 +27,8 @@ Trait cho Service, tự động sử dụng ViewEngine khi có `context` và `mo
 ### Trong ServiceProvider
 
 ```php
-use One\Core\Engines\ViewContextManager;
-use One\Core\Engines\ViewEngine;
+use Saola\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewEngine;
 
 class AppServiceProvider extends ServiceProvider
 {

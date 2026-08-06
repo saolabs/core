@@ -209,10 +209,10 @@ Admin chọn theme
 
 ### Bước 1: Đăng Ký ViewContextManager (Đã có sẵn)
 
-ViewContextManager đã được đăng ký như singleton trong `OneServiceProvider`:
+ViewContextManager đã được đăng ký như singleton trong `SaolaServiceProvider`:
 
 ```php
-// src/core/Providers/OneServiceProvider.php
+// src/core/Providers/SaolaServiceProvider.php
 $this->app->singleton(ViewContextManager::class, function ($app) {
     return new ViewContextManager();
 });
@@ -223,7 +223,7 @@ $this->app->singleton(ViewContextManager::class, function ($app) {
 ```php
 // app/Providers/AppServiceProvider.php
 
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -283,8 +283,8 @@ class AppServiceProvider extends ServiceProvider
 
 namespace App\Services;
 
-use One\Core\Services\Service;
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Services\Service;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends Service
 {

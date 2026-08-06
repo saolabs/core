@@ -77,7 +77,7 @@ class UserController extends Controller
 
 ```php
 // UserService.php
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
@@ -277,8 +277,8 @@ class ResponseService
 
 ```php
 // UserService.php
-use One\Core\Support\Methods\ViewMethods;
-use One\Core\Support\Methods\CacheMethods;
+use Saola\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\CacheMethods;
 
 class UserService extends ModuleService
 {

@@ -17,7 +17,7 @@ use Illuminate\Http\JsonResponse;
  * Service được tự động inject thông qua SmartInit trait
  * dựa trên module name: {{module_name}}
  * 
- * @property \One\App\Services\ModuleService $service
+ * @property \Saola\Core\Services\ModuleService $service
  */
 class {{ModuleName}}Controller extends WebController
 {

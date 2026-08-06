@@ -32,7 +32,7 @@ Khi render view, data được merge theo thứ tự:
 ### Ví Dụ 1: Share Data Cơ Bản
 
 ```php
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 $contextManager = app(ViewContextManager::class);
 
@@ -78,7 +78,7 @@ class ShareAdminData
 ```php
 // app/Providers/AppServiceProvider.php
 
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 class AppServiceProvider extends ServiceProvider
 {

@@ -13,7 +13,7 @@ updateContextDirectories(string $context, array $directories, ?array $variables 
 ### Ví Dụ 1: Đăng Ký Cơ Bản (Tự Động Suy Diễn Variables)
 
 ```php
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 $contextManager = app(ViewContextManager::class);
 
@@ -159,7 +159,7 @@ $contextManager->updateContextVariables('web', [
 ```php
 // app/Providers/AppServiceProvider.php
 
-use One\Core\Engines\ViewContextManager;
+use Saola\Core\Engines\ViewContextManager;
 
 class AppServiceProvider extends ServiceProvider
 {

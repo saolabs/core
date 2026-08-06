@@ -19,7 +19,7 @@
 Class chính quản lý các base directories:
 
 ```php
-use One\Core\Engines\ViewPathResolver;
+use Saola\Core\Engines\ViewPathResolver;
 
 $resolver = new ViewPathResolver([
     'defaultBase' => 'web',
@@ -33,7 +33,7 @@ $resolver = new ViewPathResolver([
 `ViewMethods` trait đã được cập nhật để hỗ trợ `ViewPathResolver`:
 
 ```php
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class MyService
 {

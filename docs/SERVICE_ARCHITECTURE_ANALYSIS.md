@@ -458,7 +458,7 @@ class UserService extends ModuleService
 ### **Phase 2: Enhance Main Service**
 
 ```php
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
@@ -553,7 +553,7 @@ class ResponseService
 ### **UserService - Full Example**
 
 ```php
-use One\Core\Support\Methods\ViewMethods;
+use Saola\Core\Support\Methods\ViewMethods;
 
 class UserService extends ModuleService
 {
