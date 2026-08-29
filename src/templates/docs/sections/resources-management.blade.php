@@ -14,8 +14,7 @@
     <div class="example-container">
         <div class="example-header">Styles and Scripts</div>
         <div class="example-code">
-            <pre><code class="syntax-highlight">@register('resources')
-    {{-- External stylesheet --}}
+            <pre><code class="syntax-highlight">    {{-- External stylesheet --}}
     &lt;link rel="stylesheet" href="/css/custom.css"&gt;
     
     {{-- Inline styles --}}
@@ -31,8 +30,7 @@
         function myFunction() {
             console.log('Hello');
         }
-    &lt;/script&gt;
-@endRegister</code></pre>
+    &lt;/script&gt;</code></pre>
         </div>
     </div>
 
@@ -54,11 +52,9 @@ ViewEngine.registerScript('view.name', 'functionName', function() {
 });
 
 // In Blade template
-@register('resources')
     &lt;script&gt;
         // Function will be wrapped and executed once
-    &lt;/script&gt;
-@endRegister</code></pre>
+    &lt;/script&gt;</code></pre>
         </div>
     </div>
 </section>

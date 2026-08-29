@@ -15,17 +15,6 @@ class ViewService extends Service
 
     }
 
-    
-
-
-
-
-
-
-
-    
-
-
     public function __call($method, $params)
     {
         if(preg_match('/^view([A-Z][a-z0-9_]+)Cache$/i', $method, $matches) && method_exists($this, $name = 'view' . $matches[1])){

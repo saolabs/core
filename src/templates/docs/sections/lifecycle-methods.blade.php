@@ -119,8 +119,7 @@
     <div class="example-container">
         <div class="example-header">Lifecycle Hooks Example</div>
         <div class="example-code">
-            <pre><code class="syntax-highlight">@register('resources')
-&lt;script&gt;
+            <pre><code class="syntax-highlight">&lt;script&gt;
 {
     created: function() {
         // Insert styles here
@@ -151,8 +150,7 @@
         console.log('View destroyed');
     }
 }
-&lt;/script&gt;
-@endRegister</code></pre>
+&lt;/script&gt;</code></pre>
         </div>
     </div>
 </section>

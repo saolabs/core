@@ -65,15 +65,6 @@
                     <td><code>@useBlock('content')</code></td>
                 </tr>
                 <tr>
-                    <td><code>@register</code></td>
-                    <td>Register resources</td>
-                    <td><code>
-                            @register('resources')
-                                ...
-                            @endRegister
-                        </code></td>
-                </tr>
-                <tr>
                     <td><code>@section</code></td>
                     <td>Define a section</td>
                     <td><code>

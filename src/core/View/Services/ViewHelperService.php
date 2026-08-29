@@ -88,9 +88,6 @@ class ViewHelperService
     public function addScript($viewId, $scriptContent, $viewName){
         $this->viewStorageManager->addScript($viewId, $scriptContent, $viewName);
     }
-    public function registerResources($viewId, $resourcesContent){
-        // $this->viewStorageManager->registerResources($viewName, $resourcesContent, $viewId);
-    }
 
     /**
      * Add event listener với multiple handlers

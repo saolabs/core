@@ -1,4 +1,3 @@
-@register('resources')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Smooth scrolling for navigation links
@@ -111,5 +110,3 @@
             }
         }
     </style>
-@endRegister
-

@@ -87,7 +87,22 @@ class ViewContextServiceProvider extends ServiceProvider
         // ===== COMPOSER 1: Logic cũ (ViewHelperService) - GIỮ NGUYÊN =====
         View::composer('*', function ($view) {
             $viewName = $view->getName();
-            $viewId = uniqid();
+            // viewId đi vào class hydrate của MỌI element ($__VIEW_ID__ . '-' . $id),
+            // nên độ dài của nó nhân với số thẻ trên trang. uniqid() tốn 13 ký tự
+            // và bắt đầu bằng CHỮ SỐ — class mở đầu bằng số là selector CSS không
+            // hợp lệ, phải CSS.escape() mới querySelector được.
+            //
+            // Thay bằng bộ đếm base36 có tiền tố chữ: v0, v1, … va, … v10.
+            // Chỉ cần duy nhất trong PHẠM VI MỘT REQUEST (class hydrate luôn nằm
+            // trong một tài liệu). Tiền tố 'v' (server) khác 'c' (client, xem
+            // ViewManager.generateViewId) nên view render sẵn và view do client
+            // tạo lúc điều hướng SPA không bao giờ đụng id nhau.
+            //
+            // static trong closure: PHP-FPM cấp process mới mỗi request nên tự
+            // reset. Dưới Octane bộ đếm chạy tiếp — vẫn duy nhất, chỉ dài dần
+            // (100 triệu view = 6 ký tự), không ảnh hưởng tính đúng.
+            static $__viewSeq = 0;
+            $viewId = 'v' . base_convert((string) $__viewSeq++, 10, 36);
             $helper = app(ViewHelperService::class);
             
             $helper->registerView($viewName, $viewId);

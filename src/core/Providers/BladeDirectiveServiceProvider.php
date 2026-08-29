@@ -18,7 +18,6 @@ use Saola\Core\View\Compilers\OutDirectiveService;
 use Saola\Core\View\Compilers\PageDirectiveService;
 use Saola\Core\View\Compilers\ReactiveDirectiveService;
 use Saola\Core\View\Compilers\ServerSideDirectiveService;
-use Saola\Core\View\Compilers\SetupDirectiveService;
 use Saola\Core\View\Compilers\SubscribeDirectiveService;
 use Saola\Core\View\Compilers\TemplateDirectiveService;
 use Saola\Core\View\Compilers\VarsDirectiveService;
@@ -56,8 +55,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
     protected $reactiveService;
     /** @var ServerSideDirectiveService */
     protected $serverSideService;
-    /** @var SetupDirectiveService */
-    protected $setupService;
     /** @var SubscribeDirectiveService */
     protected $subscribeService;
     /** @var TemplateDirectiveService */
@@ -91,7 +88,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
             PageDirectiveService::class,
             ReactiveDirectiveService::class,
             ServerSideDirectiveService::class,
-            SetupDirectiveService::class,
             SubscribeDirectiveService::class,
             TemplateDirectiveService::class,
             VarsDirectiveService::class,
@@ -127,7 +123,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         $this->pageDirectiveService = $this->app->make(PageDirectiveService::class);
         $this->reactiveService = $this->app->make(ReactiveDirectiveService::class);
         $this->serverSideService = $this->app->make(ServerSideDirectiveService::class);
-        $this->setupService = $this->app->make(SetupDirectiveService::class);
         $this->subscribeService = $this->app->make(SubscribeDirectiveService::class);
         $this->templateService = $this->app->make(TemplateDirectiveService::class);
         $this->varsService = $this->app->make(VarsDirectiveService::class);
@@ -149,7 +144,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         $this->pageDirectiveService->registerDirectives();
         $this->reactiveService->registerDirectives();
         $this->serverSideService->registerDirectives();
-        $this->setupService->registerDirectives();
         $this->subscribeService->registerDirectives();
         $this->templateService->registerDirectives();
         $this->markerRegistryService->registerDirectives();
@@ -160,7 +154,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         $this->registerResourcesDirective();
         $this->registerStylesDirective();
         $this->registerVueDirective();
-        $this->registerRegisterDirective();
         $this->registerViewTypeDirective();
     }
 
@@ -272,25 +265,4 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         });
     }
 
-    /**
-     * Đăng ký Register directive
-     */
-    protected function registerRegisterDirective(): void
-    {
-        Blade::directive('register', function ($expression) {
-            return "<?php \$__env->startSection(\$__VIEW_ID__.'_register'); ?>";
-        });
-
-        Blade::directive('Register', function ($expression) {
-            return "<?php \$__env->startSection(\$__VIEW_ID__.'_register'); ?>";
-        });
-
-        Blade::directive('endregister', function ($expression) {
-            return "<?php \$__env->stopSection(); \$__helper->registerResources(\$__VIEW_ID__, \$__env->yieldContent(\$__VIEW_ID__.'_register')); ?>";
-        });
-
-        Blade::directive('endRegister', function ($expression) {
-            return "<?php \$__env->stopSection(); \$__helper->registerResources(\$__VIEW_ID__, \$__env->yieldContent(\$__VIEW_ID__.'_register')); ?>";
-        });
-    }
 }
