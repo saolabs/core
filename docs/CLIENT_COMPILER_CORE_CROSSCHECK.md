@@ -110,5 +110,7 @@ Core marker shortcut map contains all above keys, but Client MarkerRegistry curr
 - Core directive registrations: `src/core/View/Compilers/*DirectiveService.php`
 - Client marker registry: `../client/dist/src/core/services/MarkerRegistry.js`
 - Client marker type contract: `../client/dist/src/core/contracts/MarkerInterface.d.ts`
-- Compiler directive reference: `../compiler/docs/DIRECTIVES-REFERENCE.md`
-- Compiler runtime marker emission: `../compiler/src/sao2blade/hydrate_processor.py`
+- Compiler directive reference: `../compiler/docs/03-directives.md`
+- Compiler runtime marker emission: `../compiler/src/Hydration/BladeHydrateProcessor.php`
+  (bản Python cũ `sao2blade/hydrate_processor.py` nay chỉ còn làm oracle parity ở
+  `../builder/.reference/python/src/`)
