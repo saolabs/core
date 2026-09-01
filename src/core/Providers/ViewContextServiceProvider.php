@@ -123,6 +123,18 @@ class ViewContextServiceProvider extends ServiceProvider
         
             // Set biến cơ bản (logic cũ - GIỮ NGUYÊN)
             $view->with([
+                // $__helper là biến MỌI directive core sinh ra đều gọi tới
+                // ($__helper->startMarker/setState/addScript/...), nên nó phải
+                // có mặt ở MỌI view.
+                //
+                // Cấp ở đây, không phải View::share(): shared data nằm trên view
+                // factory — một singleton mà Octane KHÔNG dọn giữa các request
+                // (chỉ GiveNewApplicationInstanceToViewFactory share lại 'app'),
+                // trong khi ViewHelperService là scoped nên BỊ dọn. Share thì
+                // request sau còn thấy helper của request trước, kèm marker và
+                // script của nó, mà không một lỗi nào. `with()` là data của
+                // từng view nên không có đường rò đó.
+                '__helper' => $helper,
                 '__VIEW_ID__' => $viewId,
                 '__VIEW_PATH__' => $viewName,
                 '__VIEW_NAME__' => $viewName,

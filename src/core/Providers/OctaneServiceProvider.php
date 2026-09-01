@@ -6,7 +6,6 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\RequestReceived;
 use Laravel\Octane\Events\RequestTerminated;
 use Laravel\Octane\Events\WorkerStarting;
-use Saola\Core\System\System;
 use Saola\Core\Services\Service;
 use Saola\Core\Engines\ViewManager;
 use Saola\Core\Engines\ViewDataEngine;
@@ -91,11 +90,9 @@ class OctaneServiceProvider extends ServiceProvider
      */
     protected function discoverOctaneAwareClasses(): void
     {
-        // Thêm các lớp đã biết triển khai OctaneCompatible
-        $this->octaneAwareClasses = [
-            // \Saola\Core\OctaneAwareService::class,
-            // Thêm các lớp khác tại đây
-        ];
+        // Lớp triển khai Saola\Core\Contracts\OctaneCompatible cần reset giữa
+        // các request. Xem ViewStorageService để biết hình dạng.
+        $this->octaneAwareClasses = [];
     }
 
     /**
@@ -122,9 +119,6 @@ class OctaneServiceProvider extends ServiceProvider
         // Reset các trạng thái tĩnh chính
         $this->resetViewEngines();
         
-        // Reset trạng thái của System class
-        $this->resetSystemState();
-
         // Reset singleton instances
         $this->resetSingletonInstances();
 
@@ -165,47 +159,6 @@ class OctaneServiceProvider extends ServiceProvider
                     $instance->resetInstanceState();
                 }
             }
-        }
-    }
-
-    /**
-     * Reset trạng thái của System class
-     */
-    protected function resetSystemState(): void
-    {
-        // Reset các thuộc tính tĩnh cụ thể của System 
-        // mà có thể gây rò rỉ trạng thái giữa các requests
-        if (class_exists(System::class)) {
-            // Reset các trạng thái tĩnh quan trọng
-            $reflectionClass = new \ReflectionClass(System::class);
-            $staticProperties = $reflectionClass->getStaticProperties();
-            
-            // Reset các thuộc tính tĩnh cụ thể mà không phải là readonly
-            if (isset($staticProperties['_appinfo'])) {
-                System::$_appinfo = null;
-            }
-            
-            // Reset filemanager instance
-            try {
-                $filemanagerProperty = $reflectionClass->getProperty('filemanager');
-                $filemanagerProperty->setAccessible(true);
-                $filemanagerProperty->setValue(null, null);
-            } catch (\ReflectionException $e) {
-                // Property không tồn tại hoặc không thể truy cập
-            }
-            
-            // Reset packages, routes, menus - chỉ reset nếu cần thiết
-            // Lưu ý: Có thể cần giữ lại giữa các request nếu là cấu hình global
-            // Nếu cần reset, uncomment các dòng sau:
-            // if (isset($staticProperties['packages'])) {
-            //     System::$packages = [];
-            // }
-            // if (isset($staticProperties['routes'])) {
-            //     System::$routes = [];
-            // }
-            // if (isset($staticProperties['menus'])) {
-            //     System::$menus = [];
-            // }
         }
     }
 

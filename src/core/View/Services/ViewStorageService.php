@@ -4,7 +4,6 @@ namespace Saola\Core\View\Services;
 
 use Saola\Core\Concerns\OctaneCompatibleMethods;
 use Saola\Core\Contracts\OctaneCompatible;
-use Saola\Core\System\OctaneAwareService;
 
 class ViewStorageService implements OctaneCompatible
 {

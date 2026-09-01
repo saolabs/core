@@ -5,7 +5,6 @@ namespace Saola\Core\Routing;
 use Saola\Core\Support\SPA;
 use Illuminate\Support\Facades\Route;
 use Saola\Core\Engines\ViewContextManager;
-use Saola\Core\Routing\System;
 
 trait RouteMethods
 {
@@ -107,7 +106,7 @@ trait RouteMethods
      */
     public function pushLaravelRoute()
     {
-        $context = $this->data['context'] ?? System::WEB;
+        $context = $this->data['context'] ?? Registry::WEB;
         $as = $this->data['as'];
         $uri = $this->data['uri'] ?? null;
         $method = $this->data['method'] ?? null;
@@ -405,7 +404,7 @@ trait RouteMethods
     {
         $parentModule = $this->data['parent_module'] ?? null;
         $currentModule = $this->data['module'] ?? null;
-        $context = $this->data['context'] ?? System::WEB;
+        $context = $this->data['context'] ?? Registry::WEB;
         $blade = $this->data['view'] ?? null;
         $vcm = app(ViewContextManager::class);
 

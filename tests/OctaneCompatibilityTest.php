@@ -4,7 +4,7 @@ namespace Tests;
 
 use Laravel\Octane\Events\RequestTerminated;
 use Laravel\Octane\Octane;
-use Saola\Core\System\System;
+use Saola\Core\Engines\ViewDataEngine;
 use Saola\Core\Engines\ViewManager;
 use Saola\Core\Providers\OctaneServiceProvider;
 use Tests\TestCase;
@@ -46,14 +46,12 @@ class OctaneCompatibilityTest extends TestCase
             return;
         }
 
-        if (property_exists(System::class, '_appinfo')) {
-            System::$_appinfo = ['test' => 'data'];
-        }
+        ViewManager::$themeFolder = 'themes/storefront';
+        ViewDataEngine::$shared = true;
 
         $this->app['events']->dispatch(new RequestTerminated($this->app, $this->app, request(), new \Illuminate\Http\Response()));
 
-        if (property_exists(System::class, '_appinfo')) {
-            $this->assertNull(System::$_appinfo);
-        }
+        $this->assertSame('', ViewManager::$themeFolder);
+        $this->assertFalse(ViewDataEngine::$shared);
     }
 }
