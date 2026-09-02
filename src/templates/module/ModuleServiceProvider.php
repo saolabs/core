@@ -3,7 +3,7 @@
 namespace {{Namespace}};
 
 use Saola\Core\Providers\ModuleServiceProvider as CoreModuleServiceProvider;
-use Saola\Core\Routing\System;
+use Saola\Core\System;
 {{AdminControllerUseStatement}}
 {{ApiControllerUseStatement}}
 {{WebControllerUseStatement}}

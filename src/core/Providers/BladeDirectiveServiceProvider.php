@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\Blade;
 use Saola\Core\View\Compilers\SimplePhpStructureParserService;
 use Saola\Core\View\Compilers\CommonDirectiveService;
 use Saola\Core\View\Compilers\AttrDirectiveService;
+use Saola\Core\View\Compilers\StyleDirectiveService;
 use Saola\Core\View\Compilers\BindingDirectiveService;
 use Saola\Core\View\Compilers\BlockDirectiveService;
 use Saola\Core\View\Compilers\ClientSideDirectiveService;
 use Saola\Core\View\Compilers\ComponentDirectiveService;
 use Saola\Core\View\Compilers\EventDirectiveService;
-use Saola\Core\View\Compilers\HydrationDirectiveService;
 use Saola\Core\View\Compilers\LetConstDirectiveService;
 use Saola\Core\View\Compilers\OutDirectiveService;
 use Saola\Core\View\Compilers\PageDirectiveService;
@@ -31,6 +31,8 @@ class BladeDirectiveServiceProvider extends ServiceProvider
     protected $phpParser;
     /** @var AttrDirectiveService */
     protected $attrService;
+    /** @var StyleDirectiveService */
+    protected $styleService;
     /** @var BindingDirectiveService */
     protected $bindingService;
     /** @var BlockDirectiveService */
@@ -43,8 +45,6 @@ class BladeDirectiveServiceProvider extends ServiceProvider
     protected $componentService;
     /** @var EventDirectiveService */
     protected $eventService;
-    /** @var HydrationDirectiveService */
-    protected $hydrationService;
     /** @var LetConstDirectiveService */
     protected $letConstService;
     /** @var OutDirectiveService */
@@ -77,12 +77,12 @@ class BladeDirectiveServiceProvider extends ServiceProvider
             SimplePhpStructureParserService::class,
             CommonDirectiveService::class,
             AttrDirectiveService::class,
+            StyleDirectiveService::class,
             BindingDirectiveService::class,
             BlockDirectiveService::class,
             ClientSideDirectiveService::class,
             ComponentDirectiveService::class,
             EventDirectiveService::class,
-            HydrationDirectiveService::class,
             LetConstDirectiveService::class,
             OutDirectiveService::class,
             PageDirectiveService::class,
@@ -111,13 +111,13 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         // Resolve all services from the container
         $this->phpParser = $this->app->make(SimplePhpStructureParserService::class);
         $this->attrService = $this->app->make(AttrDirectiveService::class);
+        $this->styleService = $this->app->make(StyleDirectiveService::class);
         $this->bindingService = $this->app->make(BindingDirectiveService::class);
         $this->blockService = $this->app->make(BlockDirectiveService::class);
         $this->clientSideService = $this->app->make(ClientSideDirectiveService::class);
         $this->commonService = $this->app->make(CommonDirectiveService::class);
         $this->componentService = $this->app->make(ComponentDirectiveService::class);
         $this->eventService = $this->app->make(EventDirectiveService::class);
-        $this->hydrationService = $this->app->make(HydrationDirectiveService::class);
         $this->letConstService = $this->app->make(LetConstDirectiveService::class);
         $this->outService = $this->app->make(OutDirectiveService::class);
         $this->pageDirectiveService = $this->app->make(PageDirectiveService::class);
@@ -133,12 +133,12 @@ class BladeDirectiveServiceProvider extends ServiceProvider
         // Register all directives
         $this->registerDirectives();
         $this->attrService->registerDirectives();
+        $this->styleService->registerDirectives();
         $this->bindingService->registerDirectives();
         $this->blockService->registerDirectives();
         $this->clientSideService->registerDirectives();
         $this->componentService->registerDirectives();
         $this->eventService->registerDirectives();
-        $this->hydrationService->registerDirectives();
         $this->letConstService->registerDirectives();
         $this->outService->registerDirectives();
         $this->pageDirectiveService->registerDirectives();

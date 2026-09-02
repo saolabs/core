@@ -6,7 +6,6 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\RequestReceived;
 use Laravel\Octane\Events\RequestTerminated;
 use Laravel\Octane\Events\WorkerStarting;
-use Saola\Core\System\System;
 use Saola\Core\Services\Service;
 use Saola\Core\Engines\ViewManager;
 use Saola\Core\Engines\ViewDataEngine;
@@ -25,13 +24,6 @@ class OctaneServiceProvider extends ServiceProvider
     protected $container = [];
     
     /**
-     * Danh sách các lớp triển khai OctaneCompatible
-     * 
-     * @var array
-     */
-    protected $octaneAwareClasses = [];
-    
-    /**
      * Register any application services.
      */
     public function register(): void
@@ -48,9 +40,6 @@ class OctaneServiceProvider extends ServiceProvider
             // octane not found
             return;
         }
-
-        // Phát hiện các lớp triển khai OctaneCompatible
-        $this->discoverOctaneAwareClasses();
 
         // Xử lý khi worker bắt đầu
         $this->app['events']->listen(WorkerStarting::class, function () {
@@ -85,20 +74,6 @@ class OctaneServiceProvider extends ServiceProvider
     }
 
     /**
-     * Phát hiện các lớp triển khai OctaneCompatible
-     * 
-     * @return void
-     */
-    protected function discoverOctaneAwareClasses(): void
-    {
-        // Thêm các lớp đã biết triển khai OctaneCompatible
-        $this->octaneAwareClasses = [
-            // \Saola\Core\OctaneAwareService::class,
-            // Thêm các lớp khác tại đây
-        ];
-    }
-
-    /**
      * Chuẩn bị môi trường cho Octane
      */
     protected function prepareOctaneEnvironment(): void
@@ -122,9 +97,6 @@ class OctaneServiceProvider extends ServiceProvider
         // Reset các trạng thái tĩnh chính
         $this->resetViewEngines();
         
-        // Reset trạng thái của System class
-        $this->resetSystemState();
-
         // Reset singleton instances
         $this->resetSingletonInstances();
 
@@ -142,73 +114,9 @@ class OctaneServiceProvider extends ServiceProvider
 
         // Reset trạng thái của MagicMethods và Event Listeners
         $this->resetMagicMethodsState();
-        
-        // Reset trạng thái của các lớp triển khai OctaneCompatible
-        $this->resetOctaneAwareClasses();
+
     }
     
-    /**
-     * Reset trạng thái của các lớp triển khai OctaneCompatible
-     * 
-     * @return void
-     */
-    protected function resetOctaneAwareClasses(): void
-    {
-        foreach ($this->octaneAwareClasses as $class) {
-            if (class_exists($class) && is_subclass_of($class, OctaneCompatible::class)) {
-                // Reset trạng thái tĩnh
-                $class::resetStaticState();
-                
-                // Reset trạng thái của instance nếu đã được đăng ký trong container
-                if ($this->app->bound($class)) {
-                    $instance = $this->app->make($class);
-                    $instance->resetInstanceState();
-                }
-            }
-        }
-    }
-
-    /**
-     * Reset trạng thái của System class
-     */
-    protected function resetSystemState(): void
-    {
-        // Reset các thuộc tính tĩnh cụ thể của System 
-        // mà có thể gây rò rỉ trạng thái giữa các requests
-        if (class_exists(System::class)) {
-            // Reset các trạng thái tĩnh quan trọng
-            $reflectionClass = new \ReflectionClass(System::class);
-            $staticProperties = $reflectionClass->getStaticProperties();
-            
-            // Reset các thuộc tính tĩnh cụ thể mà không phải là readonly
-            if (isset($staticProperties['_appinfo'])) {
-                System::$_appinfo = null;
-            }
-            
-            // Reset filemanager instance
-            try {
-                $filemanagerProperty = $reflectionClass->getProperty('filemanager');
-                $filemanagerProperty->setAccessible(true);
-                $filemanagerProperty->setValue(null, null);
-            } catch (\ReflectionException $e) {
-                // Property không tồn tại hoặc không thể truy cập
-            }
-            
-            // Reset packages, routes, menus - chỉ reset nếu cần thiết
-            // Lưu ý: Có thể cần giữ lại giữa các request nếu là cấu hình global
-            // Nếu cần reset, uncomment các dòng sau:
-            // if (isset($staticProperties['packages'])) {
-            //     System::$packages = [];
-            // }
-            // if (isset($staticProperties['routes'])) {
-            //     System::$routes = [];
-            // }
-            // if (isset($staticProperties['menus'])) {
-            //     System::$menus = [];
-            // }
-        }
-    }
-
     /**
      * Reset View Engines
      * 

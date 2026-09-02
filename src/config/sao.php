@@ -35,6 +35,19 @@ return [
     | Cấu hình cache cho Saola Core
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Themes
+    |--------------------------------------------------------------------------
+    |
+    | `directory` là namespace Blade chứa theme đã compile: theme `storefront`
+    | nằm ở `themes.storefront.*`. Khớp với khoá namespace trong sao.config.json.
+    |
+    */
+    'themes' => [
+        'directory' => env('SAO_THEME_DIRECTORY', 'themes'),
+    ],
+
     'cache' => [
         'default_ttl' => env('SAO_CACHE_TTL', 3600),
         'driver' => env('SAO_CACHE_DRIVER', 'file'),

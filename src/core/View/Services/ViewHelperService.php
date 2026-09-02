@@ -453,6 +453,11 @@ class ViewHelperService
         if (empty($view) || empty($viewId)) {
             return '';
         }
+        // Tên view ở đây là tên ĐƯỢC YÊU CẦU, có thể mang tiền tố theme trong
+        // khi file thật lấy từ base qua đường rơi của finder. Client không có
+        // đường rơi đó nên phải nhận khoá mà registry JS thật sự có.
+        $view = $this->getViewContextManager()->resolveClientViewKey($view);
+
         $payload = json_encode([
             'container' => $container,
             'view'      => $view,

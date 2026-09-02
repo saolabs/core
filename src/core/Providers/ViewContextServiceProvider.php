@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Saola\Core\View\Services\ViewContextService;
 use Saola\Core\View\Services\ViewHelperService;
 use Saola\Core\Engines\ViewContextManager;
+use Saola\Core\Routing\Registry;
 
 /**
  * ViewContextServiceProvider
@@ -47,28 +48,25 @@ class ViewContextServiceProvider extends ServiceProvider
      */
     protected function registerContexts(ViewContextManager $manager): void
     {
-        // Đăng ký Web Context
-        $manager->registerContext('web', [
-            'base' => 'web',
-            'components' => 'web.components',
-            'templates' => 'web.templates',
-            'partials' => 'web.partials',
-            'modules' => 'web.modules',
-            'layouts' => 'web.layouts',
-            'pages' => 'web.pages',
-        ]);
+        // Core CHỈ đặt mặc định hệ thống: base = slug của context, sáu thư mục
+        // con để resolvePath() suy ra (`{base}.modules`, `{base}.pages`, …).
+        //
+        // Không khai cứng cả 7 khoá nữa: khai rồi thì lớp trên phải nhớ khai
+        // lại đủ 7 mới đổi được base, còn quên thì `base` đi một đằng
+        // `modules` một nẻo. Suy ra cho kết quả y hệt — có test đối chiếu.
+        foreach ([Registry::WEB, Registry::ADMIN] as $slug) {
+            $manager->registerContext($slug, ['base' => $slug]);
+        }
 
-        // Đăng ký Admin Context
-        $manager->registerContext('admin', [
-            'base' => 'admin',
-            'components' => 'admin.components',
-            'partials' => 'admin.partials',
-            'modules' => 'admin.modules',
-            'layouts' => 'admin.layouts',
-            'templates' => 'admin.templates',
-            'pages' => 'admin.pages',
-        ]);
-
+        // Mọi context ROUTING cũng phải là một view context, nếu không
+        // setContextViews('api', ...) ném "not registered" chỉ vì danh sách này
+        // khai tay và quên mất nó. Base lấy đúng slug — y hệt mặc định cũ; ai
+        // muốn khác thì registerContext() đè lên, hàm này merge chứ không ghi đè.
+        foreach (array_keys(Registry::getContexts()) as $slug) {
+            if (!$manager->hasContext($slug)) {
+                $manager->registerContext($slug, ['base' => $slug]);
+            }
+        }
 
         // Set default context là 'web'
         $manager->setDefaultContext('web');
@@ -85,8 +83,15 @@ class ViewContextServiceProvider extends ServiceProvider
     protected function registerViewComposer(ViewContextManager $manager): void
     {
         // ===== COMPOSER 1: Logic cũ (ViewHelperService) - GIỮ NGUYÊN =====
-        View::composer('*', function ($view) {
-            $viewName = $view->getName();
+        View::composer('*', function ($view) use ($manager) {
+            // Tên view ở đây là tên ĐƯỢC YÊU CẦU. Khi theme đang bật, một view
+            // theme không đè vẫn mang tên `themes.{slug}.*` dù file thật lấy từ
+            // base qua đường rơi của ThemeAwareViewFinder. Mọi thứ phía sau —
+            // registerView, __VIEW_PATH__, marker registry, khoá component gửi
+            // cho client — đều dẫn xuất từ tên này, mà registry JS chỉ có khoá
+            // của view đã compile. Chuẩn hoá đúng MỘT lần ở đây thay vì vá từng
+            // điểm phát.
+            $viewName = $manager->resolveClientViewKey($view->getName());
             // viewId đi vào class hydrate của MỌI element ($__VIEW_ID__ . '-' . $id),
             // nên độ dài của nó nhân với số thẻ trên trang. uniqid() tốn 13 ký tự
             // và bắt đầu bằng CHỮ SỐ — class mở đầu bằng số là selector CSS không
@@ -123,6 +128,18 @@ class ViewContextServiceProvider extends ServiceProvider
         
             // Set biến cơ bản (logic cũ - GIỮ NGUYÊN)
             $view->with([
+                // $__helper là biến MỌI directive core sinh ra đều gọi tới
+                // ($__helper->startMarker/setState/addScript/...), nên nó phải
+                // có mặt ở MỌI view.
+                //
+                // Cấp ở đây, không phải View::share(): shared data nằm trên view
+                // factory — một singleton mà Octane KHÔNG dọn giữa các request
+                // (chỉ GiveNewApplicationInstanceToViewFactory share lại 'app'),
+                // trong khi ViewHelperService là scoped nên BỊ dọn. Share thì
+                // request sau còn thấy helper của request trước, kèm marker và
+                // script của nó, mà không một lỗi nào. `with()` là data của
+                // từng view nên không có đường rò đó.
+                '__helper' => $helper,
                 '__VIEW_ID__' => $viewId,
                 '__VIEW_PATH__' => $viewName,
                 '__VIEW_NAME__' => $viewName,

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Support\Facades\View;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Engines\ViewContextRegistry;
 use Saola\Core\Providers\SaolaServiceProvider;
@@ -135,6 +136,16 @@ class ViewContextRuntimeTest extends TestCase
 
     public function test_legacy_concrete_route_paths_are_rebased_without_mutating_registry(): void
     {
+        // Khoá component gửi cho client chỉ đổi sang theme khi theme THẬT SỰ
+        // mang view đó: registry JS chỉ có khoá của view theme đã compile, nên
+        // trả khoá theme cho view theme không đè = client không hydrate được.
+        $root = sys_get_temp_dir() . '/sao-rc-' . bin2hex(random_bytes(4));
+        mkdir($root . '/themes/storefront/pages', 0777, true);
+        mkdir($root . '/web/pages', 0777, true);
+        file_put_contents($root . '/themes/storefront/pages/home.blade.php', 'x');
+        file_put_contents($root . '/web/pages/about.blade.php', 'x');   // chỉ base có
+        View::getFinder()->addLocation($root);
+
         $registry = new ViewContextRegistry();
         $manager = new ViewContextManager($registry);
         $manager->registerContext('web', ['base' => 'web']);
@@ -145,7 +156,21 @@ class ViewContextRuntimeTest extends TestCase
             'themes.storefront.pages.home',
             $manager->resolveRouteComponent('web', 'web.pages.home')
         );
+        // Theme không đè `pages.about` ⇒ giữ khoá của base.
+        $this->assertSame(
+            'web.pages.about',
+            $manager->resolveRouteComponent('web', 'web.pages.about')
+        );
         $this->assertSame('web.pages.home', $registry->get('web')['routeViews']['web.home']['view']);
+
+        @unlink($root . '/themes/storefront/pages/home.blade.php');
+        @unlink($root . '/web/pages/about.blade.php');
+        @rmdir($root . '/web/pages');
+        @rmdir($root . '/web');
+        @rmdir($root . '/themes/storefront/pages');
+        @rmdir($root . '/themes/storefront');
+        @rmdir($root . '/themes');
+        @rmdir($root);
     }
 
     public function test_json_response_only_sends_materialized_routes_when_revision_changes(): void

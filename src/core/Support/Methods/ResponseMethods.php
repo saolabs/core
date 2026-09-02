@@ -45,9 +45,11 @@ trait ResponseMethods
         $forceView = $options['forceView'] ?? false;
         $includeView = $options['includeView'] ?? true;
 
-        $wantsJson = $this->wantsJsonResponse($request);
+        $wantsJson = $this->wantsJsonResponse($request) && !$forceView;
 
-        if (!$bladePath && !$forceJson && !$wantsJson && $routeName) {
+        // forceView cũng phải bật đường suy view từ route name, nếu không ép
+        // trả view mà lại không có view nào để trả.
+        if (!$bladePath && !$forceJson && (!$wantsJson || $forceView) && $routeName) {
             $bladeConfig = app(ViewContextManager::class)->routeToViewPathConfig($this->context, $routeName);
             // $bladePath = $bladeConfig['shortcut'] ?? null;
             if ($bladeConfig && ($bladeConfig['contextView'] ?? null)) {
@@ -56,11 +58,22 @@ trait ResponseMethods
         }
 
 
-        // Kiểm tra Accept header (Laravel built-in method)
-        $wantsJson = (
+        // `forceView` được tài liệu hoá từ đầu nhưng KHÔNG có nhánh nào đọc —
+        // ép trả view là bất khả thi. Nó phải thắng cả header lẫn nhánh
+        // "không tìm được view thì trả JSON" ngay dưới đây.
+        //
+        // Nhánh `!$bladePath` đó cũng là chỗ dễ mất dấu khi debug: route sai tên
+        // hoặc thiếu file blade sẽ trả JSON cho cả trình duyệt thay vì báo lỗi.
+        $wantsJson = !$forceView && (
             $wantsJson ||
             !$bladePath || $forceJson
         );
+        if ($forceView && !$bladePath) {
+            throw new \RuntimeException(
+                'response(forceView: true) nhưng không resolve được view cho route '
+                . ($routeName ?? '(không tên)') . '.'
+            );
+        }
         if ($wantsJson) {
             return $this->jsonResponse($data, $status, $headers, $jsonOptions, $bladePath, [
                 ...$options,
@@ -122,12 +135,18 @@ trait ResponseMethods
 
         if ($bladePath) {
             try {
-                if (method_exists($this, 'resolvePathByAlias')) {
-                    $bladePath = $this->resolvePathByAlias($bladePath);
+                if (method_exists($this, 'resolveViewPath')) {
+                    $bladePath = $this->resolveViewPath($bladePath);
                 }
 
-                // Thêm view HTML vào response
-                $responseData['view'] = $bladePath;
+                // `view` là KHOÁ REGISTRY cho client, không phải HTML.
+                //
+                // Khi theme đang bật, đường dẫn vừa dựng mang tiền tố theme kể
+                // cả với view theme không đè — SSR vẫn render được nhờ
+                // ThemeAwareViewFinder, nhưng registry JS chỉ có khoá của view
+                // đã compile. Chuẩn hoá y như nhánh SSR boot và bảng route.
+                $responseData['view'] = app(ViewContextManager::class)
+                    ->resolveClientViewKey($bladePath);
             } catch (\Throwable $e) {
                 // Nếu render view lỗi, chỉ trả về data
                 // Có thể log lỗi nếu cần

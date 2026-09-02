@@ -177,6 +177,37 @@ trait ViewMethods
         return ($shortcut = $contextManager->resolvePathByRoute($this->context, $route)) ? $shortcut : '';
     }
 
+    /**
+     * Đường dẫn view mà `$blade` sẽ render ra — KHÔNG render.
+     *
+     * Đi qua đúng `getBladeViewRenderConfig()` rồi lặp lại đúng cặp
+     * (module, type) mà mỗi `render*()` của ViewContextManager dùng, nên nhánh
+     * JSON và nhánh HTML không thể lệch nhau.
+     *
+     * `resolvePathByAlias()` KHÔNG làm được việc này: nó coi `@RAW:x` là type
+     * 'raw' và trả `x` trần, trong khi nhánh HTML cho `@RAW:x` ra `{base}.x`.
+     */
+    public function resolveViewPath(string $blade): string
+    {
+        $config = $this->getBladeViewRenderConfig($blade);
+
+        [$module, $type] = match ($config['method']) {
+            'renderModule' => [$this->module, 'modules'],
+            'renderPage' => ['', 'pages'],
+            'renderComponent' => ['', 'components'],
+            'renderLayout' => ['', 'layouts'],
+            'renderTemplate' => ['', 'templates'],
+            default => ['', ''],
+        };
+
+        return $this->getViewContextManager()->resolvePath(
+            $this->context ?: 'web',
+            $module,
+            $config['view'],
+            $type,
+        );
+    }
+
     public function getBladeViewRenderConfig(string $blade): array
     {
         if (preg_match('/^@([a-zA-Z0-9_]+)([\.\:])(.+)$/i', $blade, $matches)) {

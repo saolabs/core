@@ -76,44 +76,55 @@ class ViewContextManager implements OctaneCompatible
      */
     public function registerContext(string $name, array $directories, ?array $variables = null): self
     {
-        $basePath = $directories['base'] ?? $name;
-        $basePath = rtrim($basePath, '.');
+        $basePath = rtrim((string) ($directories['base'] ?? $name), '.');
+        $directories['base'] = $basePath;
 
-        // Tạo variables mặc định từ base
+        $contextConfig = $this->registry->get($name);
+
+        if ($contextConfig !== null) {
+            // Đăng ký lại với base mới phải kéo theo các thư mục con.
+            //
+            // Trước đây chỗ này chỉ array_merge, nên gọi
+            // registerContext('web', ['base' => "themes.{$slug}"]) lên một
+            // context đã khai đủ key sẽ chỉ đổi mỗi 'base': 'modules' vẫn là
+            // 'web.modules'. Tệ hơn, biến đại diện BÊN DƯỚI lại được suy từ
+            // base mới — '__module__' thành 'themes.{$slug}.modules.' trong khi
+            // resolvePath() vẫn trỏ 'web.modules'. Hai nửa của cùng một hàm đi
+            // hai hướng, và không có lỗi nào phát ra.
+            $directories = array_merge(
+                $this->rebaseDirectories($contextConfig['directories'] ?? [], $basePath),
+                $directories,
+            );
+        }
+
+        // Type không khai thì KHÔNG điền sẵn: resolvePath() và mọi caller của
+        // getBaseDirectory() đều đã có nhánh `?? "{base}.{type}"`, điền vào chỉ
+        // làm config phình mà không đổi hành vi.
         $defaultVariables = [
             '__system__' => '_system.',
             '__base__' => $basePath . '.',
             '__component__' => ($directories['components'] ?? "{$basePath}.components") . '.',
             '__template__' => ($directories['templates'] ?? "{$basePath}.templates") . '.',
             '__partial__' => ($directories['partials'] ?? "{$basePath}.partials") . '.',
-            // '__pagination__' => $basePath . '.pagination.',
             '__layout__' => ($directories['layouts'] ?? "{$basePath}.layouts") . '.',
             '__module__' => ($directories['modules'] ?? "{$basePath}.modules") . '.',
             '__page__' => ($directories['pages'] ?? "{$basePath}.pages") . '.',
         ];
-        // Tự động tạo variables từ directories['base'] nếu không có
-        if ($variables === null && !empty($directories)) {
-            $variables = $defaultVariables;
-        } else {
-            // Merge với variables mặc định (giữ lại các variables tùy chỉnh nếu có)
-            $variables = array_merge($defaultVariables, $variables);
-        }
-        $contextConfig = $this->registry->get($name);
+
+        // $variables === null nghĩa là "suy hết từ directories". Nhánh cũ rơi
+        // vào array_merge($defaultVariables, null) khi $directories rỗng — lỗi
+        // kiểu ở PHP 8.
+        $variables = $variables === null
+            ? $defaultVariables
+            : array_merge($defaultVariables, $variables);
+
         if ($contextConfig !== null) {
-            // Nếu context đã tồn tại, merge directories và variables
-            $contextConfig['directories'] = array_merge(
-                $contextConfig['directories'] ?? [],
-                $directories
-            );
-            $contextConfig['variables'] = array_merge(
-                $contextConfig['variables'] ?? [],
-                $variables
-            );
+            $contextConfig['directories'] = $directories;
+            $contextConfig['variables'] = array_merge($contextConfig['variables'] ?? [], $variables);
         } else {
-            // Nếu context chưa tồn tại, tạo mới
             $contextConfig = [
                 'directories' => $directories,
-                'variables' => $variables ?? [],
+                'variables' => $variables,
                 'routeViews' => [], // Lưu cache route => view path nếu cần
             ];
         }
@@ -125,6 +136,36 @@ class ViewContextManager implements OctaneCompatible
         }
 
         return $this;
+    }
+
+    /**
+     * Đưa các thư mục con của một base cũ sang base mới.
+     *
+     * Chỉ dời những key CHỈ NHẮC LẠI quy ước của base cũ (`web` → `web.modules`).
+     * Key trỏ ra ngoài base — components dùng chung giữa các theme chẳng hạn —
+     * là lựa chọn có chủ đích, giữ nguyên.
+     *
+     * @param array<string,string> $directories
+     * @return array<string,string>
+     */
+    protected function rebaseDirectories(array $directories, string $newBase): array
+    {
+        $oldBase = rtrim((string) ($directories['base'] ?? ''), '.');
+        if ($oldBase === '' || $oldBase === $newBase) {
+            return $directories;
+        }
+
+        $fromOld = $this->makeDirectories($oldBase);
+        $toNew = $this->makeDirectories($newBase);
+
+        foreach ($directories as $type => $path) {
+            if ($type !== 'base' && isset($fromOld[$type]) && $path === $fromOld[$type]) {
+                $directories[$type] = $toNew[$type];
+            }
+        }
+        $directories['base'] = $newBase;
+
+        return $directories;
     }
 
     public function registerContextViewByRoute(string $context, string $route, string|array $viewPath, ?string $shortcut = null): self
@@ -387,7 +428,7 @@ class ViewContextManager implements OctaneCompatible
      *
      * @param string|array<string,string> $context
      */
-    public function setContextViews(string|array $context, ?string $views = null): self
+    public function setContextViews(string|array $context, string|array|null $views = null): self
     {
         if (is_array($context)) {
             foreach ($context as $contextName => $contextViews) {
@@ -404,15 +445,49 @@ class ViewContextManager implements OctaneCompatible
             throw new \InvalidArgumentException("Views path for context [{$context}] is required.");
         }
 
-        $base = $this->normalizeViewsBase($views);
-        $directories = $this->makeDirectories($base);
-
         $this->contextViewOverrides[$context] = [
-            'directories' => $directories,
+            'directories' => $directories = $this->normalizeDirectories($views, $context),
             'variables' => $this->makeVariables($directories),
         ];
 
         return $this;
+    }
+
+    /**
+     * Chuẩn hoá lựa chọn view của MỘT context thành đủ bộ thư mục.
+     *
+     * Nhận hai dạng, và mỗi context dùng dạng nào tuỳ ý — chúng hoàn toàn độc
+     * lập vì mỗi context có một ô riêng trong `$contextViewOverrides`:
+     *
+     *   'themes.aurora'                      → suy cả 7 thư mục từ base
+     *   ['base' => 'themes.aurora',          → custom từng thư mục; khoá nào
+     *    'components' => 'shared.components'] //  không khai thì suy từ base
+     *
+     * @param string|array<string,string> $views
+     * @return array<string,string>
+     */
+    protected function normalizeDirectories(string|array $views, string $context): array
+    {
+        if (is_string($views)) {
+            return $this->makeDirectories($this->normalizeViewsBase($views));
+        }
+
+        $base = $this->normalizeViewsBase((string) ($views['base'] ?? $context));
+        $directories = $this->makeDirectories($base);
+
+        foreach ($directories as $type => $default) {
+            if ($type === 'base' || !isset($views[$type])) {
+                continue;
+            }
+            if (!is_string($views[$type]) || $views[$type] === '') {
+                throw new \InvalidArgumentException(
+                    "Views path for [{$context}.{$type}] must be a non-empty string."
+                );
+            }
+            $directories[$type] = $this->normalizeViewsBase($views[$type]);
+        }
+
+        return $directories;
     }
 
     /**
@@ -596,10 +671,13 @@ class ViewContextManager implements OctaneCompatible
             $registeredBase = $this->registry->get($context)['directories']['base'] ?? $context;
             $activeBase = $this->getBaseDirectory($context, 'base') ?? $registeredBase;
             if ($component === $registeredBase) {
-                return $activeBase;
+                return $this->themedComponentOrBase($activeBase, $component);
             }
             if (str_starts_with($component, $registeredBase . '.')) {
-                return $activeBase . substr($component, strlen($registeredBase));
+                return $this->themedComponentOrBase(
+                    $activeBase . substr($component, strlen($registeredBase)),
+                    $component,
+                );
             }
 
             return $component;
@@ -615,8 +693,16 @@ class ViewContextManager implements OctaneCompatible
                 continue;
             }
             $resolved = $this->resolveLogicalRouteCandidate($context, $candidate);
-            if (view()->exists($resolved)) {
+            if ($this->viewExistsStrict($resolved)) {
                 return $resolved;
+            }
+
+            // Theme không đè view này ⇒ thử bản ở base. Thiếu bước này thì route
+            // `kind: auto` trả null và BIẾN MẤT khỏi bảng route của client:
+            // "[Router] No route matched" cho mọi trang theme không đụng tới.
+            $fallback = $this->fallbackViewName($resolved);
+            if ($fallback !== null && $this->viewExistsStrict($fallback)) {
+                return $fallback;
             }
         }
 
@@ -625,9 +711,90 @@ class ViewContextManager implements OctaneCompatible
         }
 
         $logical = $component['logical'] ?? ($candidates[0] ?? null);
-        return is_string($logical) && $logical !== ''
-            ? $this->resolveLogicalRouteCandidate($context, $logical)
-            : null;
+        if (!is_string($logical) || $logical === '') {
+            return null;
+        }
+        $resolved = $this->resolveLogicalRouteCandidate($context, $logical);
+        $base = $this->fallbackViewName($resolved);
+
+        return $base === null ? $resolved : $this->themedComponentOrBase($resolved, $base);
+    }
+
+    /**
+     * Khoá component gửi cho client: chỉ dùng khoá của theme khi theme THẬT SỰ
+     * mang view đó.
+     *
+     * SSR có finder rơi về base nên vẫn ra HTML đúng, nhưng registry JS thì chỉ
+     * có khoá của những view theme thực sự compile. Trả khoá theme cho một view
+     * theme không đè = client không tìm thấy view để hydrate.
+     */
+    protected function themedComponentOrBase(string $themed, string $base): string
+    {
+        if ($themed === $base) {
+            return $base;
+        }
+        if ($this->viewExistsStrict($themed)) {
+            return $themed;
+        }
+
+        // Theme không đè view này mà base có ⇒ trả khoá base, đúng thứ registry
+        // JS đang có. Cả hai đều không có thì giữ khoá theme: không có thông tin
+        // nào tốt hơn, và hạ cấp lúc đó chỉ làm sai lệch context đang chạy.
+        return $this->viewExistsStrict($base) ? $base : $themed;
+    }
+
+    /**
+     * Cặp (base theme → base gốc) để client tự rơi khi tra registry hụt.
+     *
+     * @return array{__view_fallback_from__?:string,__view_fallback_to__?:string}
+     */
+    protected function viewFallbackPair(string $context): array
+    {
+        $activeBase = $this->contextViewOverrides[$context]['directories']['base'] ?? null;
+        $registeredBase = $this->registry->get($context)['directories']['base'] ?? $context;
+
+        if (!$activeBase || $activeBase === $registeredBase) {
+            return [];
+        }
+
+        return [
+            '__view_fallback_from__' => $activeBase,
+            '__view_fallback_to__' => $registeredBase,
+        ];
+    }
+
+    /**
+     * Khoá view gửi xuống client (SSR boot, bảng route).
+     *
+     * SSR có thể render một view mang TÊN của theme nhưng nội dung lấy từ base,
+     * nhờ đường rơi của ThemeAwareViewFinder. Registry JS thì không có đường rơi
+     * đó — nó chỉ có khoá của những view đã compile. Hàm này trả đúng khoá mà
+     * registry đang có.
+     */
+    public function resolveClientViewKey(string $view): string
+    {
+        $base = $this->fallbackViewName($view);
+
+        return $base === null ? $view : $this->themedComponentOrBase($view, $base);
+    }
+
+    /**
+     * View có file THẬT không — không tính đường rơi về base của
+     * {@see \Saola\Core\View\Finders\ThemeAwareViewFinder}.
+     */
+    protected function viewExistsStrict(string $view): bool
+    {
+        // PHẢI lấy finder của chính view factory, không phải app('view.finder'):
+        // hai chỗ đó có thể là hai instance khác nhau (factory giữ instance đã
+        // resolve trước khi provider extend binding), và location thêm bằng
+        // View::getFinder()->addLocation() chỉ nằm ở cái của factory. Lấy nhầm
+        // thì mọi view đều "không tồn tại".
+        $finder = app()->bound('view') ? app('view')->getFinder() : null;
+        if ($finder instanceof \Saola\Core\View\Finders\ThemeAwareViewFinder) {
+            return $finder->existsWithoutFallback($view);
+        }
+
+        return view()->exists($view);
     }
 
     protected function resolveLogicalRouteCandidate(string $context, string $candidate): string
@@ -639,6 +806,34 @@ class ViewContextManager implements OctaneCompatible
         }
 
         return $this->resolvePathByAlias($context, '', $candidate);
+    }
+
+    /**
+     * Tên view của theme → tên view tương ứng ở base gốc, hoặc null nếu tên
+     * này không thuộc theme nào đang bật.
+     *
+     * Đây là chỗ duy nhất biết "themes.aurora.partials.head" thật ra là
+     * "web.partials.head" khi theme không đè file đó. Nhờ vậy một theme chỉ cần
+     * mang những view nó muốn đổi, thay vì chép cả 59 view chỉ để đổi một trang.
+     */
+    public function fallbackViewName(string $view): ?string
+    {
+        foreach ($this->contextViewOverrides as $context => $override) {
+            $activeBase = $override['directories']['base'] ?? null;
+            $registeredBase = $this->registry->get($context)['directories']['base'] ?? $context;
+
+            if (!$activeBase || $activeBase === $registeredBase) {
+                continue;
+            }
+            if ($view === $activeBase) {
+                return $registeredBase;
+            }
+            if (str_starts_with($view, $activeBase . '.')) {
+                return $registeredBase . substr($view, strlen($activeBase));
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -663,7 +858,14 @@ class ViewContextManager implements OctaneCompatible
             'revision' => $this->getContextViewRevision($context),
             'systemData' => array_merge(
                 $this->getContextVariables($context) ?? [],
-                ['__context__' => $context]
+                ['__context__' => $context],
+                // Đường rơi theme → base cho client. Server có
+                // ThemeAwareViewFinder, client thì không: `__layout__` là tiền
+                // tố của CẢ context nên `@extends(__layout__ + "workspace")`
+                // sinh khoá `themes.{slug}.layouts.workspace` ngay cả khi theme
+                // không mang layout đó. Không có cặp này thì client báo
+                // `View "..." not found in registry` và trang trắng.
+                $this->viewFallbackPair($context),
             ),
         ];
     }
