@@ -2,6 +2,9 @@
 namespace Saola\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Saola\Core\Http\Middleware\ApplyTheme;
+use Saola\Core\Services\ThemeService;
+use Saola\Core\View\Finders\ThemeAwareViewFinder;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Engines\ViewContextRegistry;
 use Saola\Core\View\Services\ViewHelperService;
@@ -43,6 +46,29 @@ class SaolaServiceProvider extends ServiceProvider
             );
         });
 
+        // Không giữ trạng thái theo request (slug luôn đọc lại từ cache), nên
+        // singleton là đúng — xem ghi chú đầu ThemeService.
+        $this->app->singleton(ThemeService::class);
+
+        // Thay finder mặc định bằng bản biết rơi từ theme về base gốc. Phải
+        // `extend` chứ không `singleton` mới, để giữ nguyên hints/extensions mà
+        // Laravel và các package khác đã nạp vào finder gốc.
+        $this->app->extend('view.finder', function ($finder, $app) {
+            if ($finder instanceof ThemeAwareViewFinder) {
+                return $finder;
+            }
+            $themed = new ThemeAwareViewFinder(
+                $app['files'],
+                $finder->getPaths(),
+                $finder->getExtensions(),
+            );
+            foreach ($finder->getHints() as $namespace => $paths) {
+                $themed->addNamespace($namespace, $paths);
+            }
+
+            return $themed;
+        });
+
         $this->app->register(ViewContextServiceProvider::class);
 
         // Đăng ký OctaneServiceProvider nếu Laravel Octane được phát hiện
@@ -67,6 +93,12 @@ class SaolaServiceProvider extends ServiceProvider
     {
         if (!$this->app) {
             return;
+        }
+
+        // Đẩy thẳng vào nhóm `web` thay vì cấp một alias: alias thì route nào
+        // quên gắn là render sai theme mà không lỗi gì.
+        if ($this->app->bound('router')) {
+            $this->app['router']->pushMiddlewareToGroup('web', ApplyTheme::class);
         }
 
         // Load translations nếu có

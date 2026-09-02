@@ -24,13 +24,6 @@ class OctaneServiceProvider extends ServiceProvider
     protected $container = [];
     
     /**
-     * Danh sách các lớp triển khai OctaneCompatible
-     * 
-     * @var array
-     */
-    protected $octaneAwareClasses = [];
-    
-    /**
      * Register any application services.
      */
     public function register(): void
@@ -47,9 +40,6 @@ class OctaneServiceProvider extends ServiceProvider
             // octane not found
             return;
         }
-
-        // Phát hiện các lớp triển khai OctaneCompatible
-        $this->discoverOctaneAwareClasses();
 
         // Xử lý khi worker bắt đầu
         $this->app['events']->listen(WorkerStarting::class, function () {
@@ -81,18 +71,6 @@ class OctaneServiceProvider extends ServiceProvider
     {
         $this->container[] = $service;
         return $this;
-    }
-
-    /**
-     * Phát hiện các lớp triển khai OctaneCompatible
-     * 
-     * @return void
-     */
-    protected function discoverOctaneAwareClasses(): void
-    {
-        // Lớp triển khai Saola\Core\Contracts\OctaneCompatible cần reset giữa
-        // các request. Xem ViewStorageService để biết hình dạng.
-        $this->octaneAwareClasses = [];
     }
 
     /**
@@ -136,32 +114,9 @@ class OctaneServiceProvider extends ServiceProvider
 
         // Reset trạng thái của MagicMethods và Event Listeners
         $this->resetMagicMethodsState();
-        
-        // Reset trạng thái của các lớp triển khai OctaneCompatible
-        $this->resetOctaneAwareClasses();
+
     }
     
-    /**
-     * Reset trạng thái của các lớp triển khai OctaneCompatible
-     * 
-     * @return void
-     */
-    protected function resetOctaneAwareClasses(): void
-    {
-        foreach ($this->octaneAwareClasses as $class) {
-            if (class_exists($class) && is_subclass_of($class, OctaneCompatible::class)) {
-                // Reset trạng thái tĩnh
-                $class::resetStaticState();
-                
-                // Reset trạng thái của instance nếu đã được đăng ký trong container
-                if ($this->app->bound($class)) {
-                    $instance = $this->app->make($class);
-                    $instance->resetInstanceState();
-                }
-            }
-        }
-    }
-
     /**
      * Reset View Engines
      * 
