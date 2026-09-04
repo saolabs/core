@@ -64,6 +64,7 @@ class ViewStorageManager
         $this->eventRegistry = [];
         $this->systemData = [];
         $this->markerRegistery = [];
+        $this->headAssets = [];
     }
 
     public function registerView(string $viewName, string $viewId)
@@ -314,6 +315,62 @@ class ViewStorageManager
     public function startWrapperAttr($viewId = null)
     {
         echo ' data-view-wrapper="' . $viewId . '"';
+    }
+
+    /**
+     * Asset của <head>: `<link rel=stylesheet>` / `<script src>` khai báo trong
+     * view, ĐĂNG KÝ ở đây thay vì in tại chỗ khai báo.
+     *
+     * In tại chỗ là nguồn của lỗi quirks mode: với trang `@extends`, output nằm
+     * ngoài block của view con được echo TRƯỚC khi layout in `<!DOCTYPE html>`,
+     * nên thẻ đứng trước doctype và trình duyệt bỏ luôn doctype.
+     *
+     * @var array<string, array{kind: string, url: string, attrs: array<string, mixed>, flushed: bool}>
+     */
+    private array $headAssets = [];
+
+    /**
+     * Khoá trùng: `id` nếu có, không thì chính url. Cùng một khoá gọi bao nhiêu
+     * lần cũng chỉ ra MỘT thẻ — layout, page và mọi @include dùng chung một file
+     * css chỉ tốn một <link>, kể cả khi view được include nhiều lần trong trang.
+     */
+    public function addHeadAsset(string $kind, string $url, array $attributes = []): void
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return;
+        }
+        $id = isset($attributes['id']) ? trim((string) $attributes['id']) : '';
+        $key = $kind.':'.($id !== '' ? 'id='.$id : $url);
+        if (isset($this->headAssets[$key])) {
+            return;
+        }
+        $this->headAssets[$key] = [
+            'kind' => $kind,
+            'url' => $url,
+            'attrs' => $attributes,
+            'flushed' => false,
+        ];
+    }
+
+    /**
+     * Lấy các asset CHƯA in (và đánh dấu đã in) — gọi được nhiều lần ở nhiều chỗ.
+     *
+     * @param  string|null $kind  null = mọi loại
+     * @return list<array{kind: string, url: string, attrs: array<string, mixed>}>
+     */
+    public function pullHeadAssets(?string $kind = null): array
+    {
+        $out = [];
+        foreach ($this->headAssets as $key => $asset) {
+            if ($asset['flushed'] || ($kind !== null && $asset['kind'] !== $kind)) {
+                continue;
+            }
+            $this->headAssets[$key]['flushed'] = true;
+            unset($asset['flushed']);
+            $out[] = $asset;
+        }
+        return $out;
     }
 
     public function addScript(string $viewName, string $viewId, $scripts)

@@ -107,10 +107,26 @@ class ThemeService
         return false;
     }
 
+    /** Thư mục Blade ĐÃ CÀI của theme — nằm trong đường tìm view của Laravel. */
+    public function installedViewsPath(string $slug): string
+    {
+        return resource_path('views' . DIRECTORY_SEPARATOR
+            . str_replace('.', DIRECTORY_SEPARATOR, $this->base($slug)));
+    }
+
+    /** Thư mục Blade trong GÓI phát hành (nguồn để cài). */
+    public function packageViewsPath(string $slug): string
+    {
+        return $this->packagePath($slug) . DIRECTORY_SEPARATOR . 'dist'
+            . DIRECTORY_SEPARATOR . 'views';
+    }
+
     /** @return list<string> Slug của mọi theme đã compile. */
     public function available(): array
     {
         $themes = [];
+
+
         foreach (View::getFinder()->getPaths() as $path) {
             $dir = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $this->directory();
             foreach (glob($dir . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [] as $themeDir) {
@@ -198,6 +214,110 @@ class ThemeService
         $manager->setContextViews($context, $this->base($slug));
 
         return true;
+    }
+
+    /**
+     * Manifest phát hành của một theme (`theme.json` do builder đóng dấu).
+     *
+     * @return array<string, mixed> rỗng nếu theme không có / không đọc được
+     */
+    public function manifest(string $slug): array
+    {
+        if (!$this->isValidSlug($slug)) {
+            return [];
+        }
+        // Builder ghi vào `dist/` cùng chỗ với views/ và public/ — cả ba đều là
+        // sản phẩm build, gốc gói chỉ giữ nguồn và sao.config.json.
+        $path = $this->packagePath($slug) . DIRECTORY_SEPARATOR . 'dist'
+            . DIRECTORY_SEPARATOR . 'theme.json';
+        $raw = is_file($path) ? @file_get_contents($path) : null;
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+
+        return is_array($data) ? $data : [];
+    }
+
+    /** Thư mục gói theme đã cài. */
+    public function packagePath(string $slug): string
+    {
+        $base = (string) config('sao.themes.path', base_path('themes'));
+
+        return rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $slug;
+    }
+
+    /**
+     * URL js/css của theme đang active — thứ server phát cho client nạp.
+     *
+     * `?v={revision}` để đổi theme là đổi URL: không có nó thì trình duyệt vẫn
+     * dùng bản cache của theme cũ sau khi admin bấm Active.
+     *
+     * @return array{js: ?string, css: ?string}
+     */
+    public function assets(string $slug, string $context = 'web'): array
+    {
+        if (!$this->isValidSlug($slug)) {
+            return ['js' => null, 'css' => null];
+        }
+
+        $manifest = $this->manifest($slug);
+        $revision = (string) ($manifest['revision'] ?? '');
+        $query = $revision !== '' ? '?v=' . $revision : '';
+        $base = "static/saola/themes/{$slug}";
+
+        $public = public_path("static/saola/themes/{$slug}");
+        $js = is_file($public . '/main.js') ? asset("{$base}/main.js") . $query : null;
+        $css = is_file($public . '/main.css') ? asset("{$base}/main.css") . $query : null;
+
+        // Gói CÓ bundle mà bản publish không đọc được = cài hỏng (symlink tuyệt
+        // đối, thiếu bước link, quyền). Im lặng là kịch bản tệ nhất: SSR ra HTML
+        // của theme còn client rơi về view base → hydrate lệch, không lỗi nào.
+        if ($js === null && is_file($this->packagePath($slug) . '/dist/public/main.js')) {
+            report(new \RuntimeException(
+                "Theme [{$slug}] có dist/public/main.js nhưng không truy cập được qua {$public}/main.js — "
+                . 'chạy lại `php artisan saola:theme:install ' . $slug . ' --force`.'
+            ));
+        }
+
+        return ['js' => $js, 'css' => $css];
+    }
+
+    /**
+     * Theme có tương thích với bản app đang chạy không.
+     *
+     * Kiểm `contract` và `idMode`: lệch là marker id lệch, hydrate không claim
+     * được DOM server gửi và **nhân đôi DOM** — không exception, không log. Nên
+     * phải chặn ở đây chứ không để lộ ra lúc render.
+     *
+     * @param array<string, mixed> $buildInfo nội dung `saola.json` của app
+     * @return array{ok: bool, reason: ?string}
+     */
+    public function checkCompatible(string $slug, array $buildInfo): array
+    {
+        $manifest = $this->manifest($slug);
+        if ($manifest === []) {
+            return ['ok' => false, 'reason' => "Theme [{$slug}] thiếu theme.json."];
+        }
+
+        $appContract = $buildInfo['contract'] ?? null;
+        $themeContract = $manifest['contract'] ?? null;
+        if ($appContract !== null && $themeContract !== $appContract) {
+            return ['ok' => false, 'reason' =>
+                "Theme [{$slug}] build cho contract {$themeContract}, app đang chạy contract {$appContract}."];
+        }
+
+        $appIdMode = $buildInfo['idMode'] ?? null;
+        $themeIdMode = $manifest['idMode'] ?? null;
+        // Allowlist, KHÔNG phó thác cho compiler: IdMode::fromString() cố ý rơi
+        // về md5 với mọi giá trị lạ, nên "terser" gõ nhầm sẽ compile im lặng ra
+        // id md5 và lệch hoàn toàn với app.
+        if (!in_array($themeIdMode, ['terse', 'compact', 'md5', 'raw'], true)) {
+            return ['ok' => false, 'reason' => "Theme [{$slug}] khai idMode không hợp lệ: " . var_export($themeIdMode, true)];
+        }
+        if ($appIdMode !== null && $themeIdMode !== $appIdMode) {
+            return ['ok' => false, 'reason' =>
+                "Theme [{$slug}] build với idMode [{$themeIdMode}], app đang chạy [{$appIdMode}]."];
+        }
+
+        return ['ok' => true, 'reason' => null];
     }
 
     protected function isValidSlug(string $slug): bool

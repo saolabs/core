@@ -90,6 +90,68 @@ class ViewHelperService
     }
 
     /**
+     * `@addCssLink($href, $attributes)` — đăng ký stylesheet, không in tại chỗ.
+     *
+     * Trùng href (hoặc trùng `id` nếu có) chỉ ra một thẻ, nên layout + page +
+     * component dùng chung một file css là chuyện bình thường.
+     */
+    public function addCssLink(string $href, array $attributes = []): void
+    {
+        $this->viewStorageManager->addHeadAsset('css', $href, $attributes);
+    }
+
+    /** `@addScriptSrc($src, $attributes)` — như trên, cho `<script src>`. */
+    public function addScriptSrc(string $src, array $attributes = []): void
+    {
+        $this->viewStorageManager->addHeadAsset('script', $src, $attributes);
+    }
+
+    /**
+     * In các asset đã đăng ký mà CHƯA in.
+     *
+     * Gọi ở hai chỗ là có chủ ý: `_system.page.begin` in css đã đăng ký lúc
+     * <head> render (view con của `@extends` chạy trước layout nên kịp), còn
+     * `_system.partials.scripts` cuối <body> in phần đăng ký MUỘN hơn — chính
+     * layout, hoặc block render sau <head>. `<link>`/`<script>` trong body vẫn
+     * hợp lệ và vẫn áp dụng, chỉ là muộn hơn một nhịp.
+     *
+     * Thẻ in ra phải khớp href/src + attribute với spec phía client: AssetManager
+     * (client/src/core/services/AssetManager.ts) tìm đúng bộ đó để ADOPT node
+     * SSR thay vì chèn bản thứ hai khi hydrate. Cả hai phía đọc cùng một nguồn
+     * (RegisterParser của compiler) nên không lệch.
+     */
+    public function renderHeadAssets(?string $kind = null): string
+    {
+        $html = '';
+        foreach ($this->viewStorageManager->pullHeadAssets($kind) as $asset) {
+            $url = e($asset['url']);
+            $attrs = $this->renderHeadAssetAttributes($asset['attrs']);
+            $html .= $asset['kind'] === 'css'
+                ? '<link rel="stylesheet" href="'.$url.'"'.$attrs.'>'."\n"
+                : '<script src="'.$url.'"'.$attrs.'></script>'."\n";
+        }
+        return $html;
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function renderHeadAssetAttributes(array $attributes): string
+    {
+        $out = '';
+        foreach ($attributes as $name => $value) {
+            $name = strtolower(trim((string) $name));
+            // href/src/rel do renderHeadAssets tự in; tên lạ thì bỏ qua thay vì
+            // ghép thẳng vào HTML.
+            if (in_array($name, ['href', 'src', 'rel'], true)
+                || $value === false || $value === null || $value === ''
+                || preg_match('/^[a-z_][a-z0-9_:.-]*$/', $name) !== 1) {
+                continue;
+            }
+            $out .= $value === true ? ' '.$name : ' '.$name.'="'.e((string) $value).'"';
+        }
+        return $out;
+    }
+
+    /**
      * Add event listener với multiple handlers
      * @param string $eventType Event type (click, mouseover, etc.)
      * @param array $handlers Array of handlers
