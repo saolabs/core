@@ -37,7 +37,18 @@ class VarsDirectiveService
                 $parsedDefault = $this->phpParser->parsePhpStructure($default);
                 $defaultCode = $this->phpParser->generatePhpCode($parsedDefault);
                 
-                $vars[] = "if (!isset(" . $var . ") || empty(" . $var . ")) " . $var . " = $defaultCode;";
+                // CHỈ `!isset`, KHÔNG kèm `empty`.
+                //
+                // `empty()` đúng với null nhưng cũng đúng với false, 0, 0.0, '',
+                // '0' và [] — nên controller gửi `false` xuống thì Blade lại thay
+                // bằng mặc định của template. Phía JS, compiler sinh
+                // `let {x = default} = __data__`, mà destructuring chỉ áp dụng
+                // mặc định khi giá trị là undefined. Hai bên vì thế cho ra hai kết
+                // quả khác nhau trên cùng một dữ liệu: đo được trên /demo/market
+                // ngày 05/09/2026 — SSR tô xanh "tăng" trong khi số là -1.96%.
+                //
+                // `!isset()` khớp với JS: chưa truyền (hoặc null) mới lấy mặc định.
+                $vars[] = "if (!isset(" . $var . ")) " . $var . " = $defaultCode;";
                 
                 // Thêm vào JSON data (loại bỏ dấu $)
                 $varName = ltrim($var, '$');
