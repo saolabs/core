@@ -318,36 +318,38 @@ class ViewStorageManager
     }
 
     /**
-     * Asset của <head>: `<link rel=stylesheet>` / `<script src>` khai báo trong
-     * view, ĐĂNG KÝ ở đây thay vì in tại chỗ khai báo.
+     * Asset của <head>: `<link rel=stylesheet>` / `<script src>` / `<style>` khai
+     * báo trong view, ĐĂNG KÝ ở đây thay vì in tại chỗ khai báo.
      *
      * In tại chỗ là nguồn của lỗi quirks mode: với trang `@extends`, output nằm
      * ngoài block của view con được echo TRƯỚC khi layout in `<!DOCTYPE html>`,
      * nên thẻ đứng trước doctype và trình duyệt bỏ luôn doctype.
      *
-     * @var array<string, array{kind: string, url: string, attrs: array<string, mixed>, flushed: bool}>
+     * `value` là url với `css`/`script`, là chính nội dung CSS với `style`.
+     *
+     * @var array<string, array{kind: string, value: string, attrs: array<string, mixed>, flushed: bool}>
      */
     private array $headAssets = [];
 
     /**
-     * Khoá trùng: `id` nếu có, không thì chính url. Cùng một khoá gọi bao nhiêu
+     * Khoá trùng: `id` nếu có, không thì chính value. Cùng một khoá gọi bao nhiêu
      * lần cũng chỉ ra MỘT thẻ — layout, page và mọi @include dùng chung một file
      * css chỉ tốn một <link>, kể cả khi view được include nhiều lần trong trang.
      */
-    public function addHeadAsset(string $kind, string $url, array $attributes = []): void
+    public function addHeadAsset(string $kind, string $value, array $attributes = []): void
     {
-        $url = trim($url);
-        if ($url === '') {
+        $value = trim($value);
+        if ($value === '') {
             return;
         }
         $id = isset($attributes['id']) ? trim((string) $attributes['id']) : '';
-        $key = $kind.':'.($id !== '' ? 'id='.$id : $url);
+        $key = $kind.':'.($id !== '' ? 'id='.$id : $value);
         if (isset($this->headAssets[$key])) {
             return;
         }
         $this->headAssets[$key] = [
             'kind' => $kind,
-            'url' => $url,
+            'value' => $value,
             'attrs' => $attributes,
             'flushed' => false,
         ];
@@ -356,14 +358,15 @@ class ViewStorageManager
     /**
      * Lấy các asset CHƯA in (và đánh dấu đã in) — gọi được nhiều lần ở nhiều chỗ.
      *
-     * @param  string|null $kind  null = mọi loại
-     * @return list<array{kind: string, url: string, attrs: array<string, mixed>}>
+     * @param  string|null $kind  null = mọi loại; `css` gồm cả `<style>`
+     * @return list<array{kind: string, value: string, attrs: array<string, mixed>}>
      */
     public function pullHeadAssets(?string $kind = null): array
     {
         $out = [];
         foreach ($this->headAssets as $key => $asset) {
-            if ($asset['flushed'] || ($kind !== null && $asset['kind'] !== $kind)) {
+            $group = $asset['kind'] === 'style' ? 'css' : $asset['kind'];
+            if ($asset['flushed'] || ($kind !== null && $group !== $kind)) {
                 continue;
             }
             $this->headAssets[$key]['flushed'] = true;
@@ -457,6 +460,11 @@ class ViewStorageManager
         }
         foreach ($attr as $key => $val) {
             if (in_array($key, ['#children', '#content', '#value', '#text'])) {
+                continue;
+            }
+            // A boolean `open` is enabled by its presence, even as open="".
+            // Match the client's null/false removal so collapsed details stay collapsed during hydration.
+            if ($val === null || ($key === 'open' && $val === false)) {
                 continue;
             }
             $eValue = e($val);

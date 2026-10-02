@@ -49,6 +49,14 @@
             }
         }
     },
+    "scripts": {
+        "test": "phpunit tests",
+        "check": [
+            "composer validate --strict --no-interaction",
+            "composer audit --locked",
+            "@test"
+        ]
+    },
     "minimum-stability": "dev",
     "prefer-stable": true
 }

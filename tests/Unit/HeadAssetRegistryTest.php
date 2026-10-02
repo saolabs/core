@@ -73,6 +73,42 @@ class HeadAssetRegistryTest extends TestCase
         $this->assertStringNotContainsString('/a.css', $late);
     }
 
+    public function test_style_in_trong_head_nguyen_van_va_trung_noi_dung_chi_ra_mot_the(): void
+    {
+        // `<style>` của .sao phải ra ở <head> (bucket css) — đợi JS chèn là FOUC.
+        $helper = $this->helper();
+        $helper->addStyle('.a > .b { content: "\201C"; }');
+        $helper->addStyle('.a > .b { content: "\201C"; }');
+        $helper->addScriptSrc('/x.js');
+
+        $head = $helper->renderHeadAssets('css');
+        // Nguyên văn: client adopt theo textContent, escape `>` là hỏng cả CSS.
+        $this->assertSame('<style data-sao-style>.a > .b { content: "\201C"; }</style>'."\n", $head);
+        $this->assertStringContainsString('<script src="/x.js">', $helper->renderHeadAssets());
+    }
+
+    public function test_style_dung_sau_link_du_dang_ky_truoc(): void
+    {
+        // Page (view con) đăng ký trước layout. In theo thứ tự đăng ký thì
+        // stylesheet của layout đè ngược <style> của page khi cùng specificity.
+        $helper = $this->helper();
+        $helper->addStyle('.page { color: red; }');
+        $helper->addCssLink('/layout.css');
+
+        $head = $helper->renderHeadAssets('css');
+        $this->assertLessThan(strpos($head, '<style'), strpos($head, '<link'));
+    }
+
+    public function test_style_khong_thoat_duoc_khoi_the(): void
+    {
+        $helper = $this->helper();
+        $helper->addStyle('.a{}</STYLE><script>alert(1)</script>', ['media' => 'print']);
+
+        $html = $helper->renderHeadAssets();
+        $this->assertStringNotContainsString('</STYLE><script>', $html);
+        $this->assertStringStartsWith('<style data-sao-style media="print">', $html);
+    }
+
     public function test_attribute_duoc_escape_va_ten_la_bi_bo(): void
     {
         $helper = $this->helper();

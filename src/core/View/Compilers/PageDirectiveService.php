@@ -71,11 +71,10 @@ class PageDirectiveService
     }
 
     public function srartPageDirective($expression) {
-        return "<?php echo \$__env->make(\$__system__.'page.begin', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><!-- [sao:page ...] -->";
+        return "<?php echo \$__env->make(\$__system__.'page.begin', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>";
     }
 
     public function endPageDirective($expression) {
-        return "<!-- [/sao:page] --><?php echo \$__env->make(\$__system__.'page.end', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>";
+        return "<?php echo \$__env->make(\$__system__.'page.end', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>";
     }
 }
-

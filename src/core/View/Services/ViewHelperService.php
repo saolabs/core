@@ -107,6 +107,16 @@ class ViewHelperService
     }
 
     /**
+     * `<style>` của view (compiler sinh từ `<style>` trong .sao) — đăng ký để in
+     * trong <head> lúc SSR thay vì đợi JS chèn lúc mount. Trùng nội dung (hoặc
+     * trùng `id`) chỉ ra một thẻ.
+     */
+    public function addStyle(string $css, array $attributes = []): void
+    {
+        $this->viewStorageManager->addHeadAsset('style', $css, $attributes);
+    }
+
+    /**
      * In các asset đã đăng ký mà CHƯA in.
      *
      * Gọi ở hai chỗ là có chủ ý: `_system.page.begin` in css đã đăng ký lúc
@@ -118,19 +128,29 @@ class ViewHelperService
      * Thẻ in ra phải khớp href/src + attribute với spec phía client: AssetManager
      * (client/src/core/services/AssetManager.ts) tìm đúng bộ đó để ADOPT node
      * SSR thay vì chèn bản thứ hai khi hydrate. Cả hai phía đọc cùng một nguồn
-     * (RegisterParser của compiler) nên không lệch.
+     * (RegisterParser của compiler) nên không lệch. `<style>` thì khớp theo
+     * nội dung, nên `data-sao-style` + CSS in NGUYÊN VĂN.
+     *
+     * `<style>` in SAU mọi `<link>`: view con đăng ký trước layout, in theo thứ
+     * tự đăng ký thì CSS của layout (demo-site.css…) đè ngược style của page khi
+     * cùng specificity. Trước khi có SSR, client luôn chèn `<style>` cuối <head>.
      */
     public function renderHeadAssets(?string $kind = null): string
     {
         $html = '';
+        $styles = '';
         foreach ($this->viewStorageManager->pullHeadAssets($kind) as $asset) {
-            $url = e($asset['url']);
             $attrs = $this->renderHeadAssetAttributes($asset['attrs']);
+            if ($asset['kind'] === 'style') {
+                // Escape là hỏng `a > b`; chỉ chặn đường thoát khỏi thẻ.
+                $styles .= '<style data-sao-style'.$attrs.'>'.str_ireplace('</style', '<\/style', $asset['value']).'</style>'."\n";
+                continue;
+            }
             $html .= $asset['kind'] === 'css'
-                ? '<link rel="stylesheet" href="'.$url.'"'.$attrs.'>'."\n"
-                : '<script src="'.$url.'"'.$attrs.'></script>'."\n";
+                ? '<link rel="stylesheet" href="'.e($asset['value']).'"'.$attrs.'>'."\n"
+                : '<script src="'.e($asset['value']).'"'.$attrs.'></script>'."\n";
         }
-        return $html;
+        return $html.$styles;
     }
 
     /** @param array<string, mixed> $attributes */
