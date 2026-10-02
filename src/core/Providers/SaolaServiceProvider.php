@@ -131,6 +131,7 @@ class SaolaServiceProvider extends ServiceProvider
         // Đăng ký command tùy chỉnh cho artisan.
         $this->commands([
             \Saola\Core\Console\Commands\MakeModuleCommand::class,
+            \Saola\Core\Console\Commands\InstallThemeCommand::class,
             \Saola\Core\Console\Commands\PublishSaolaMigrationsCommand::class,
         ]);
 

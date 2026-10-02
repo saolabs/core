@@ -184,6 +184,19 @@ class BladeDirectiveServiceProvider extends ServiceProvider
             return "";
         });
 
+        // @addCssLink('/x.css', ['id' => 'x'])  — ĐĂNG KÝ stylesheet, không in
+        // tại chỗ. In ra ở <head> (_system.page.begin) hoặc cuối <body>
+        // (_system.partials.scripts) tuỳ lúc view đăng ký. Trùng href, hoặc
+        // trùng `id` nếu có, chỉ ra một thẻ.
+        Blade::directive('addCssLink', function ($expression) {
+            return "<?php \$__helper->addCssLink({$expression}); ?>";
+        });
+
+        // @addScriptSrc('/x.js', ['defer' => true]) — như trên, cho <script src>.
+        Blade::directive('addScriptSrc', function ($expression) {
+            return "<?php \$__helper->addScriptSrc({$expression}); ?>";
+        });
+
         // @attr handled by AttrDirectiveService
         // @checked and @selected are built-in Laravel directives
 

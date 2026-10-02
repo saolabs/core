@@ -9,7 +9,6 @@
 namespace Saola\Core\Mailer;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -60,10 +59,6 @@ class Email
 	protected $__canSend__ = true;
 
 
-	protected $config = [];
-
-	protected static $mailConfig = [];
-
 	protected static $__oneTimeData = [];
 
 	/**
@@ -74,86 +69,41 @@ class Email
 		$this->__checkConfig();
 	}
 
+	/**
+	 * Cấu hình mail của ứng dụng, dùng nguyên vẹn.
+	 *
+	 * Trước đây hàm này dựng lại toàn bộ config('mail') theo khuôn Laravel 7 rồi cache vào biến static:
+	 * làm mất các khóa mới (ví dụ `scheme` của SMTP), lấy địa chỉ gửi làm tên người gửi, và bản cache
+	 * lọt sang các app instance sau (test, Octane, queue worker) nên hành vi phụ thuộc thứ tự gọi.
+	 *
+	 * @return array
+	 */
 	protected static function __checkStaticConfig()
 	{
-		if (!static::$mailConfig) {
-			$config = [
-				'default' => config('mail.default'),
-				'mailers' => [
-					'smtp' => [
-						'transport' => 'smtp',
-						'host' => config('mail.mailers.smtp.host'),
-						'port' => config('mail.mailers.smtp.port'),
-						'encryption' => config('mail.mailers.smtp.encryption'),
-						'username' => config('mail.mailers.smtp.username'),
-						'password' => config('mail.mailers.smtp.password'),
-						'timeout' => null,
-					],
-
-					'ses' => [
-						'transport' => 'ses',
-					],
-
-					'mailgun' => [
-						'transport' => 'mailgun',
-					],
-
-					'postmark' => [
-						'transport' => 'postmark',
-					],
-
-					'sendmail' => [
-						'transport' => 'sendmail',
-						'path' => config('mail.mailers.sendmail.path',  '/usr/sbin/sendmail -bs -i'),
-					],
-
-					'log' => [
-						'transport' => 'log',
-						'channel' => config('mail.mailers.log.channel'),
-					],
-
-					'array' => [
-						'transport' => 'array',
-					],
-
-					'failover' => [
-						'transport' => 'failover',
-						'mailers' => [
-							'smtp',
-							'log',
-						],
-					],
-				],
-
-
-				'from' => [
-					'address' => config('mail.from.address'),
-					'name' => config('mail.from.address'),
-				],
-
-				'markdown' => [
-					'theme' => 'default',
-
-					'paths' => config('mail.markdown.paths')
-				],
-				'queue' => [
-					'enabled' => in_array(config('mail.queue.enabled'), ['off', 'no', 'OFF', 'false', 'FALSE', false]) ? 'OFF' : 'ON'
-				]
-			];
-
-			static::$mailConfig = $config;
-			Config::set('mail', $config);
-		}
-		return static::$mailConfig;
+		return config('mail', []);
 	}
 
+	/**
+	 * Lớp con có thể ghi đè để nạp cấu hình riêng (ví dụ SMTP lưu trong database) trước khi gửi.
+	 * Không giữ bản sao trên đối tượng: sendAfter() serialize đối tượng vào hàng đợi, bản sao sẽ
+	 * mang theo mật khẩu SMTP.
+	 *
+	 * @return array
+	 */
 	protected function __checkConfig()
 	{
-		if (!$this->config) {
-			$this->config = static::__checkStaticConfig();
-		}
-		return $this->config;
+		return static::__checkStaticConfig();
 	}
+
+	/**
+	 * `mail.queue.enabled` = true / "on" / "yes" / "1" thì sendAfter() đưa vào hàng đợi;
+	 * không khai báo hoặc giá trị khác thì gửi ngay.
+	 */
+	protected static function queueEnabled(): bool
+	{
+		return filter_var(config('mail.queue.enabled'), FILTER_VALIDATE_BOOLEAN);
+	}
+
 	/**
 	 * thêm địa chỉ email
 	 *
@@ -332,7 +282,7 @@ class Email
 	protected function _queue(int $time = 1)
 	{
 		$this->__checkConfig();
-		if (config('mail.queue.enabled') == 'OFF')
+		if (!static::queueEnabled())
 			return $this->send();
 		if (is_numeric($time) && $time >= 0) {
 			$body = view($this->__body, $this->__data)->render();
@@ -348,7 +298,6 @@ class Email
 
 	protected function _sendAfter(int $time = 1)
 	{
-		// Config::set('mail', static::$config);
 		return $this->_queue($time);
 	}
 

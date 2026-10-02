@@ -6,12 +6,14 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Providers\SaolaServiceProvider;
+use Saola\Core\Services\BundleManifest;
 use Saola\Core\Services\ThemeService;
 use Tests\TestCase;
 
 class ThemeServiceTest extends TestCase
 {
     private string $viewRoot;
+    private BundleManifest $bundleManifest;
 
     protected function setUp(): void
     {
@@ -30,6 +32,24 @@ class ThemeServiceTest extends TestCase
 
         $this->viewRoot = sys_get_temp_dir() . '/sao-theme-' . bin2hex(random_bytes(4));
         mkdir($this->viewRoot . '/themes/storefront', 0777, true);
+        mkdir($this->viewRoot . '/packages/storefront/dist', 0777, true);
+        file_put_contents($this->viewRoot . '/packages/storefront/dist/theme.json', json_encode([
+            'slug' => 'storefront',
+            'contract' => 1,
+            'idMode' => 'terse',
+            'revision' => 'theme-rev-1',
+            'context' => 'web',
+        ], JSON_THROW_ON_ERROR));
+        config()->set('sao.themes.path', $this->viewRoot . '/packages');
+        $this->bundleManifest = new class extends BundleManifest {
+            public array $info = ['contract' => 1, 'idMode' => 'terse'];
+
+            public function buildInfo(): array
+            {
+                return $this->info;
+            }
+        };
+        $this->app->instance(BundleManifest::class, $this->bundleManifest);
         View::getFinder()->addLocation($this->viewRoot);
 
         Cache::flush();
@@ -37,6 +57,10 @@ class ThemeServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        @unlink($this->viewRoot . '/packages/storefront/dist/theme.json');
+        @rmdir($this->viewRoot . '/packages/storefront/dist');
+        @rmdir($this->viewRoot . '/packages/storefront');
+        @rmdir($this->viewRoot . '/packages');
         @rmdir($this->viewRoot . '/themes/storefront');
         @rmdir($this->viewRoot . '/themes');
         @rmdir($this->viewRoot);
@@ -63,6 +87,13 @@ class ThemeServiceTest extends TestCase
     {
         $this->theme()->activate('storefront', 'web');
 
+        $this->assertSame([
+            'slug' => 'storefront',
+            'contract' => 1,
+            'idMode' => 'terse',
+            'revision' => 'theme-rev-1',
+            'context' => 'web',
+        ], Cache::get(ThemeService::CACHE_PREFIX . 'web'));
         $this->assertTrue($this->theme()->apply('web'));
         $this->assertSame('themes.storefront.modules.roster.index', $this->modulePath());
     }
@@ -72,6 +103,83 @@ class ThemeServiceTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         $this->theme()->activate('khong-ton-tai', 'web');
+    }
+
+    public function test_activate_tu_choi_theme_khong_tuong_thich_va_khong_doi_cache(): void
+    {
+        file_put_contents($this->viewRoot . '/packages/storefront/dist/theme.json', json_encode([
+            'slug' => 'storefront',
+            'contract' => 2,
+            'idMode' => 'terse',
+            'revision' => 'theme-rev-2',
+            'context' => 'web',
+        ], JSON_THROW_ON_ERROR));
+
+        try {
+            $this->theme()->activate('storefront', 'web');
+            $this->fail('Theme khác contract phải bị từ chối.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertStringContainsString('contract 2', $exception->getMessage());
+        }
+
+        $this->assertNull($this->theme()->active('web'));
+    }
+
+    public function test_check_compatible_tu_choi_metadata_bat_buoc_bi_thieu(): void
+    {
+        $this->assertFalse($this->theme()->checkCompatible('storefront', [])['ok']);
+        $this->assertFalse($this->theme()->checkCompatible('storefront', [
+            'contract' => '',
+            'idMode' => 'terse',
+        ])['ok']);
+
+        file_put_contents($this->viewRoot . '/packages/storefront/dist/theme.json', json_encode([
+            'slug' => 'storefront',
+            'idMode' => 'terse',
+            'revision' => 'theme-rev-1',
+            'context' => 'web',
+        ], JSON_THROW_ON_ERROR));
+        $result = $this->theme()->checkCompatible('storefront', [
+            'contract' => 1,
+            'idMode' => 'terse',
+            'context' => 'web',
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('thiếu contract', $result['reason']);
+    }
+
+    public function test_check_compatible_tu_choi_theme_thieu_revision(): void
+    {
+        file_put_contents($this->viewRoot . '/packages/storefront/dist/theme.json', json_encode([
+            'slug' => 'storefront',
+            'contract' => 1,
+            'idMode' => 'terse',
+        ], JSON_THROW_ON_ERROR));
+
+        $result = $this->theme()->checkCompatible('storefront', [
+            'contract' => 1,
+            'idMode' => 'terse',
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('thiếu revision', $result['reason']);
+    }
+
+    public function test_activate_tu_choi_theme_cua_context_khac(): void
+    {
+        file_put_contents($this->viewRoot . '/packages/storefront/dist/theme.json', json_encode([
+            'slug' => 'storefront',
+            'contract' => 1,
+            'idMode' => 'terse',
+            'revision' => 'theme-rev-1',
+            'context' => 'admin',
+        ], JSON_THROW_ON_ERROR));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('dành cho context [admin]');
+
+        $this->theme()->activate('storefront', 'web');
     }
 
     public function test_resolver_chi_chay_mot_lan_roi_nam_trong_cache(): void
@@ -127,6 +235,28 @@ class ThemeServiceTest extends TestCase
         $this->assertSame('web.modules.roster.index', $this->modulePath());
 
         mkdir($this->viewRoot . '/themes/storefront', 0777, true);
+    }
+
+    public function test_theme_active_tro_nen_khong_tuong_thich_sau_deploy_thi_roi_ve_base(): void
+    {
+        $this->theme()->activate('storefront', 'web');
+        $this->assertTrue($this->theme()->apply('web'));
+
+        $this->bundleManifest->info = ['contract' => 2, 'idMode' => 'terse'];
+
+        $this->assertFalse($this->theme()->apply('web'));
+        $this->assertSame('web.modules.roster.index', $this->modulePath());
+        $this->assertSame('storefront', $this->theme()->active('web'), 'giữ lựa chọn để admin có thể chẩn đoán và cài lại');
+    }
+
+    public function test_apply_nang_cap_cache_slug_cu_sang_selection_co_contract(): void
+    {
+        Cache::forever(ThemeService::CACHE_PREFIX . 'web', 'storefront');
+
+        $this->assertTrue($this->theme()->apply('web'));
+        $this->assertSame(1, Cache::get(ThemeService::CACHE_PREFIX . 'web')['contract']);
+        $this->assertSame('theme-rev-1', Cache::get(ThemeService::CACHE_PREFIX . 'web')['revision']);
+        $this->assertSame('web', Cache::get(ThemeService::CACHE_PREFIX . 'web')['context']);
     }
 
     public function test_phai_apply_lai_sau_moi_ranh_gioi_request_octane(): void
