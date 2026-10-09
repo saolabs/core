@@ -1,4 +1,4 @@
-# Saola Core v1.0.0
+# Saola Core v1.0.2
 
 Laravel core library for reactive full-stack applications. Includes scoped view services, theme/head asset integration, translation support, and the Octane shared-view state isolation fix.
 
@@ -12,4 +12,4 @@ Composer validate and audit passed; 124 tests, 306 assertions.
 
 ## Release scope
 
-Coordinated v1.0.0 source release of the Saola ecosystem on GitHub. Registry publishing (npm, Packagist or VS Code Marketplace) is a separate step. Existing tags and previously published registry versions are unchanged.
+Coordinated v1.0.2 registry release using the tested v1.0.0 source. Package manifests are normalized to 1.0.2 for registry availability. Runtime source is unchanged from v1.0.0. Existing tags and previously published versions are preserved.
