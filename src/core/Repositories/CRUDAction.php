@@ -196,9 +196,11 @@ trait CRUDAction
     public function parseData($data = [])
     {
         $escape = [];
+        $casts = $this->_model->getCasts();
+        $ignore = $this->_model->getIgnoreParse();
         if (count($data)) {
             foreach ($data as $key => $value) {
-                if ((is_array($value) || is_object($value)) && (!$this->_model->casts || !array_key_exists($key, $this->_model->casts)) && (!($ignore = $this->_model->getIgnoreParse()) || !is_array($ignore) || !in_array($key, $ignore))) {
+                if ((is_array($value) || is_object($value)) && !array_key_exists($key, $casts) && !in_array($key, $ignore)) {
                     $escape[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
                 } else {
                     $escape[$key] = $value;
