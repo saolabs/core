@@ -11,7 +11,7 @@ namespace Saola\Core\Routing;
  * @property string $method
  * @property string $action
  * @property string $middleware
- * @property string $permission
+ * @property list<string> $permission Serialized local operation values.
  * @property string $name
  * @property string $as
  * @property int $priority
@@ -22,7 +22,6 @@ namespace Saola\Core\Routing;
  * @method $this method(string $method) set method
  * @method $this action(string $action) set action
  * @method $this middleware(string $middleware) set middleware
- * @method $this permission(string $permission) set permission
  * @method $this name(string $name) set name
  * @method $this as(string $as) set as (route name)
  * @method $this display(string $display) set display (display name)
@@ -101,6 +100,7 @@ class Router
     {
         $this->init();
         $this->data = array_merge($this->data, $data);
+        $this->data['permission'] = Permission::values($data['permission'] ?? null);
         if ($parent) {
             $this->parent = $parent;
         }
@@ -144,6 +144,13 @@ class Router
         return $this;
     }
 
+
+    public function permission(Permission $permission, Permission ...$permissions): static
+    {
+        $this->data['permission'] = Permission::values([$permission, ...$permissions]);
+
+        return $this;
+    }
 
     public function toArray(): array
     {

@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use Saola\Core\Providers\ModuleServiceProvider;
 use Saola\Core\System;
+use Saola\Core\Routing\Permission;
 use Tests\TestCase;
 
 /**
@@ -43,7 +44,7 @@ class ModuleServiceProviderHooksTest extends TestCase
             public function permissions(): void
             {
                 $this->called[] = 'permissions';
-                System::addPermission('web', 'jobs.run');
+                System::addPermission('web', ['jobs'], Permission::CREATE);
             }
         };
 
@@ -51,7 +52,7 @@ class ModuleServiceProviderHooksTest extends TestCase
 
         $this->assertSame(['routes', 'menus', 'permissions'], $provider->called);
         $this->assertSame(['Ngoài route'], array_column(System::menu('web'), 'title'));
-        $this->assertSame(['jobs.run'], System::permissions('web'));
+        $this->assertSame(['create'], System::permissions('web'));
     }
 
     public function test_module_chi_khai_bao_routes_van_boot_duoc(): void

@@ -3,6 +3,7 @@
 namespace Saola\Core;
 
 use Saola\Core\Routing\Context;
+use Saola\Core\Routing\Permission;
 use Saola\Core\Routing\Registry;
 
 /**
@@ -86,10 +87,15 @@ class System
         Registry::addMenuItem($context, $item);
     }
 
-    /** @param string|list<string> $permission */
-    public static function addPermission(string $context, $permission): void
+    public static function permissionDeclarations(?string $context = null): array
     {
-        Registry::addPermission($context, $permission);
+        return Registry::permissionDeclarations($context);
+    }
+
+    /** @param list<string> $modulePath */
+    public static function addPermission(string $context, array $modulePath, Permission $permission, Permission ...$permissions): void
+    {
+        Registry::addPermission($context, $modulePath, $permission, ...$permissions);
     }
 
     public static function reset(): void

@@ -560,8 +560,11 @@ trait RouteMethods
             $this->data[$name] = $arguments[0];
         }
 
-        // check if middleware or permission
-        else if (in_array($name, ['middleware', 'permission'])) {
+        else if ($name === 'permission') {
+            $this->data[$name] = Permission::values($t === 1 ? $arguments[0] : $arguments);
+        }
+        // Middleware remains a Laravel string/array declaration.
+        else if ($name === 'middleware') {
             if (!is_string($arguments[0]) && !is_array($arguments[0])) {
                 throw new \Exception($name . ' must be a string or array');
             }

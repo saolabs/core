@@ -41,7 +41,7 @@ class Registry
     /**
      * Permission không gắn với route nào (quyền theo dữ liệu, quyền của job).
      *
-     * @var array<string,list<string>>
+     * @var array<string,list<array{context:string,module_path:array,operation:string}>>
      */
     protected static $permissions = [];
 
@@ -161,27 +161,37 @@ class Registry
     }
 
     /**
-     * Mọi permission khai báo trên cây (context, module, route) hợp với các
-     * permission module tự thêm. Dùng để seed bảng quyền mà không phải chép
-     * tay danh sách lần thứ hai.
+     * Các loại thao tác đã khai báo, loại trùng trên toàn bộ phạm vi được chọn.
+     * Dùng permissionDeclarations() khi cần context/module để tạo ma trận grant.
      *
      * @return list<string>
      */
     public static function permissions(?string $context = null): array
     {
-        $permissions = [];
-        static::walk($context, static function (array $node) use (&$permissions): void {
-            foreach ((array) ($node['permission'] ?? []) as $permission) {
-                $permissions[] = $permission;
+        return array_values(array_unique(array_column(static::permissionDeclarations($context), 'operation')));
+    }
+
+    /** Local declarations with explicit scope, independent of URL prefixes. */
+    public static function permissionDeclarations(?string $context = null): array
+    {
+        $declarations = [];
+        static::walk($context, static function (array $node, string $ctx, array $trail) use (&$declarations): void {
+            foreach ($node['permission'] ?? [] as $operation) {
+                $declarations[] = ['context' => $ctx, 'module_path' => $trail, 'operation' => $operation];
             }
         });
         foreach (static::$permissions as $ctx => $list) {
             if ($context === null || $ctx === $context) {
-                $permissions = array_merge($permissions, $list);
+                $declarations = array_merge($declarations, $list);
             }
         }
 
-        return array_values(array_unique(array_filter($permissions)));
+        $unique = [];
+        foreach ($declarations as $declaration) {
+            $unique[json_encode($declaration, JSON_THROW_ON_ERROR)] = $declaration;
+        }
+
+        return array_values($unique);
     }
 
     /**
@@ -239,18 +249,29 @@ class Registry
      */
     public static function addMenuItem(string $context, array $item): void
     {
+        if (array_key_exists('permission', $item)) {
+            $item['permission'] = Permission::values($item['permission']);
+        }
         static::$menus[$context][] = $item;
     }
 
     /**
      * Đăng ký permission không gắn với route nào.
      *
-     * @param string|list<string> $permission
+     * @param list<string> $modulePath Empty path targets the context itself.
      */
-    public static function addPermission(string $context, $permission): void
+    public static function addPermission(string $context, array $modulePath, Permission $permission, Permission ...$permissions): void
     {
-        foreach ((array) $permission as $name) {
-            static::$permissions[$context][] = $name;
+        foreach ($modulePath as $segment) {
+            if (!is_string($segment) || trim($segment) === '') {
+                throw new \InvalidArgumentException('Module path segments must be non-empty strings.');
+            }
+        }
+        if (trim($context) === '') {
+            throw new \InvalidArgumentException('Permission context must not be empty.');
+        }
+        foreach (Permission::values([$permission, ...$permissions]) as $operation) {
+            static::$permissions[$context][] = ['context' => $context, 'module_path' => array_values($modulePath), 'operation' => $operation];
         }
     }
 

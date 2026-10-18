@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use Saola\Core\Routing\Registry;
+use Saola\Core\Routing\Permission;
 use Saola\Core\System;
 use Tests\TestCase;
 
@@ -52,7 +53,7 @@ class SystemRegistryTest extends TestCase
             ->module('roster', ['prefix' => '/roster', 'priority' => 5])
             ->title('Danh sách nhân sự')
             ->display_name('Nhân sự')
-            ->permission('roster.view')
+            ->permission(Permission::READ)
             ->group(function ($module) {
                 $module->get('/', 'index')->name('index');
             });
@@ -63,7 +64,7 @@ class SystemRegistryTest extends TestCase
         $this->assertSame('roster', $modules[0]['slug']);
         $this->assertSame('Nhân sự', $modules[0]['display_name']);
         $this->assertSame('Danh sách nhân sự', $modules[0]['title']);
-        $this->assertSame(['roster.view'], $modules[0]['permission']);
+        $this->assertSame(['read'], $modules[0]['permission']);
         $this->assertSame(5, $modules[0]['priority']);
         $this->assertSame(0, $modules[0]['depth']);
     }
@@ -94,18 +95,18 @@ class SystemRegistryTest extends TestCase
 
     public function test_permission_gom_ca_cay_lan_cai_module_tu_them(): void
     {
-        System::context('admin', ['as' => 'admin', 'permission' => ['admin']])
+        System::context('admin', ['as' => 'admin', 'permission' => Permission::ACCESS])
             ->module('users')
-            ->permission('users.manage')
+            ->permission(Permission::ACCESS)
             ->group(function ($module) {
-                $module->get('/', 'index')->name('index')->permission('users.view');
+                $module->get('/', 'index')->name('index')->permission(Permission::READ);
             });
-        System::addPermission('admin', 'reports.export');
+        System::addPermission('admin', ['reports'], Permission::READ);
 
         $permissions = System::permissions('admin');
 
         sort($permissions);
-        $this->assertSame(['admin', 'reports.export', 'users.manage', 'users.view'], $permissions);
+        $this->assertSame(['access', 'read'], $permissions);
     }
 
     public function test_menu_chi_lay_module_co_nhan_va_tron_item_tu_them(): void
@@ -127,7 +128,7 @@ class SystemRegistryTest extends TestCase
     {
         System::context('web', ['as' => 'web'])->module('x')->display_name('X');
         System::addMenuItem('web', ['title' => 'Y']);
-        System::addPermission('web', 'z');
+        System::addPermission('web', ['z'], Permission::READ);
 
         System::reset();
 

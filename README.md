@@ -269,6 +269,7 @@ class MyService implements OctaneCompatible
 
 ## Tài liệu chi tiết
 
+- **[Permission enum và hướng nâng cấp core 2.0](docs/PERMISSIONS.md)** — khai báo thao tác dùng chung; string permission cũ bị từ chối.
 - **[Kiến trúc hệ thống](docs/ARCHITECTURE.md)**
 - **[Tổng quan cấu trúc](docs/STRUCTURE_OVERVIEW.md)**
 - **[Quick Start Guide](docs/QUICK_START_GUIDE.md)**
