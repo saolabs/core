@@ -21,7 +21,7 @@ class RoutePermissionEnumTest extends TestCase
     {
         $route = (new Router)->permission(Permission::READ, Permission::UPDATE, Permission::READ);
         $this->assertSame(['read', 'update'], $route->toArray()['permission']);
-        $this->assertSame(['access', 'read', 'create', 'update', 'delete', 'restore', 'force_delete'], array_column(Permission::cases(), 'value'));
+        $this->assertSame(['access', 'read', 'create', 'update', 'delete', 'restore', 'force_delete', 'extra'], array_column(Permission::cases(), 'value'));
         $this->assertSame(['read'], json_decode(json_encode((new Router)->permission(Permission::READ)->toArray()), true)['permission']);
     }
 

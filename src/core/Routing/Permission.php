@@ -14,6 +14,7 @@ enum Permission: string
     case DELETE = 'delete';
     case RESTORE = 'restore';
     case FORCE_DELETE = 'force_delete';
+    case EXTRA = 'extra';
 
     /** Normalize declarations only; serialized metadata contains string values. */
     public static function values(mixed $permissions): array

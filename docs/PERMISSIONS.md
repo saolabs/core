@@ -12,11 +12,24 @@ $users->put('/{id}', [UserController::class, 'update'])->name('update')->permiss
 System::addPermission('admin', ['users'], Permission::RESTORE);
 ```
 
-Enum dùng chung: ACCESS, READ, CREATE, UPDATE, DELETE, RESTORE, FORCE_DELETE.
+Enum dùng chung: ACCESS, READ, CREATE, UPDATE, DELETE, RESTORE, FORCE_DELETE, EXTRA.
 Không tạo enum riêng cho từng module. Method `permission()` nhận các đối số enum;
 constructor/config nhận một enum hoặc mảng enum. String ở setter, constructor,
 property assignment hoặc addPermission đều bị từ chối. Metadata xuất ra chỉ chứa
 list string của enum để JSON/route tooling đọc được.
+
+`EXTRA` gom các chức năng đặc biệt được developer đánh dấu rõ trên action:
+
+EXTRA có từ core 2.1.0.
+
+```php
+$users->post('/export', [UserController::class, 'export'])->name('export')->permission(Permission::EXTRA);
+$users->post('/resend-invitations', [UserController::class, 'resendInvitations'])->name('resend-invitations')->permission(Permission::EXTRA);
+```
+
+Hai action trên dùng chung ô EXTRA của module User. Action không khai báo EXTRA
+không tự bị gán vào nhóm này. EXTRA không thay thế READ/CREATE/UPDATE/DELETE và
+không tự cấp quyền cho module khác hay submodule.
 
 ```php
 System::permissions('admin');             // Danh sách loại thao tác, không phải ma trận grant.
