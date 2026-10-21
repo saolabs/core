@@ -50,6 +50,11 @@ class SaolaServiceProvider extends ServiceProvider
         // singleton là đúng — xem ghi chú đầu ThemeService.
         $this->app->singleton(ThemeService::class);
 
+        // Callback Saola::share đăng ký lúc boot phải sống qua mọi request.
+        $this->app->singleton(\Saola\Core\Services\ClientShare::class);
+        // installed.json chỉ đổi khi composer chạy: đọc một lần mỗi worker.
+        $this->app->singleton(\Saola\Core\Services\PackageAssets::class);
+
         // Thay finder mặc định bằng bản biết rơi từ theme về base gốc. Phải
         // `extend` chứ không `singleton` mới, để giữ nguyên hints/extensions mà
         // Laravel và các package khác đã nạp vào finder gốc.
@@ -133,6 +138,7 @@ class SaolaServiceProvider extends ServiceProvider
             \Saola\Core\Console\Commands\MakeModuleCommand::class,
             \Saola\Core\Console\Commands\InstallThemeCommand::class,
             \Saola\Core\Console\Commands\PublishSaolaMigrationsCommand::class,
+            \Saola\Core\Console\Commands\PublishPackageAssetsCommand::class,
         ]);
 
         // Publish config file

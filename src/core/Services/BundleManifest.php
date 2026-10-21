@@ -83,6 +83,23 @@ class BundleManifest
      *
      * @return array<string, string> specifier → URL
      */
+    /**
+     * `APP_CONFIGS.bundles` của trang: bundle client của package (theo tên) rồi
+     * tới theme đang bật. Thứ tự = thứ tự merge, sau đè trước — theme thắng.
+     *
+     * @return list<string>
+     */
+    public function bundleUrls(string $context): array
+    {
+        $themes = app(ThemeService::class);
+        $active = $themes->active($context);
+
+        return array_values(array_filter([
+            ...app(PackageAssets::class)->urls($context),
+            $active ? $themes->assets($active, $context)['js'] : null,
+        ]));
+    }
+
     public function importMap(string $context): array
     {
         return ['@saolabs/client' => $this->entryUrl($context)];
