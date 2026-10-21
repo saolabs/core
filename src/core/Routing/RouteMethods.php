@@ -218,7 +218,9 @@ trait RouteMethods
         }
         // Thêm giá trị mặc định cho tham số
         if (isset($this->data['defaults'])) {
-            $laravelRoute = $laravelRoute->defaults($this->data['defaults']);
+            foreach ($this->data['defaults'] as $key => $value) {
+                $laravelRoute = $laravelRoute->defaults($key, $value);
+            }
         }
         // Loại bỏ middleware nếu có
         if (isset($this->data['withoutMiddleware'])) {
@@ -501,12 +503,13 @@ trait RouteMethods
     {
         $t = count($arguments);
         // check if the method is a http method
-        if (in_array($name, $this->routeMethods)) {
+        if ($this->isHttpMethod($name)) {
             if ($name == 'match') {
                 if ($t < 2 || !is_array($arguments[0])) {
                     throw new \Exception('Match must be an array');
                 }
                 $this->data['match'] = array_shift($arguments);
+                $this->data['is_match'] = true;
                 $t--;
             } else {
                 $this->data['method'] = $name;
@@ -701,7 +704,13 @@ trait RouteMethods
      */
     public function any($uri, $action)
     {
-        return $this->setRouteDataValue('any', $uri, $action);
+        // A container gets a child route, like get()/post() do through the addChild alias.
+        if ($this->isModule() || $this->isContext() || $this->isChannel()) {
+            return $this->addChildRouter(['type' => 'router'])->any($uri, $action);
+        }
+        $this->setRouteDataValue('any', $uri, $action);
+
+        return $this;
     }
     /**
      * Đặt điều kiện regex cho tham số route
