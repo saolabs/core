@@ -1,11 +1,15 @@
 # Saola Core
 
+Coordinated admin alpha compatibility: see [release notes](RELEASE.md).
+
 [![PHP Version](https://img.shields.io/badge/PHP-8.2%2B-blue.svg)](https://php.net)
 [![Laravel Version](https://img.shields.io/badge/Laravel-12.x%20%7C%2013.x-green.svg)](https://laravel.com)
 [![Laravel Octane](https://img.shields.io/badge/Octane-2.x-orange.svg)](https://laravel.com/docs/octane)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Saola Core** — PHP/Laravel backend library của hệ sinh thái [Saola](https://github.com/saolabs), framework full-stack để xây dựng ứng dụng web reactive với Laravel + TypeScript + `.sao` templates.
+
+Nền lang: [Language System](https://github.com/saolabs/admin/blob/main/docs/LANGUAGE_SYSTEM_PLAN.md). Core có `LanguageSources`, `LanguageTree`, strict `LanguageJson`, `LanguageStore`, scoped `TextResolver` và projection `ClientCatalogs`. PHP `text()` dùng DB adapter, giữ nguyên Laravel `__()`. Source project/package theo `lang/{locale}/*.php`, tên file/package không prefix key. SSR dùng projection được phép; `response()` phát snapshot server chuẩn bị ở request attribute `saola.i18n` vào metadata page-data.
 
 ---
 

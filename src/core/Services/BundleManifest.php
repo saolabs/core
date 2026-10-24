@@ -56,11 +56,14 @@ class BundleManifest
     /** URL CSS của app, null nếu build không sinh ra. */
     public function cssUrl(string $context): ?string
     {
-        $source = 'resources/css/app.css';
+        $source = config("sao.assets.css.{$context}", 'resources/css/app.css');
         if ($this->isDev()) {
             return $this->devUrl($source);
         }
-        $file = $this->manifest($context)[$source]['file'] ?? null;
+        $manifest = $this->manifest($context);
+        // A context bundle may import its own stylesheet rather than declaring
+        // a second Vite entry. Resolve the emitted CSS from that JS entry.
+        $file = $manifest[$source]['file'] ?? ($manifest[$this->entrySource($context)]['css'][0] ?? null);
 
         return $file ? asset("static/saola/{$context}/{$file}") : null;
     }

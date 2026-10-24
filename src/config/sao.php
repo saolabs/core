@@ -157,6 +157,11 @@ return [
     |
     */
     'i18n' => [
+        // Explicit Saola seed files under lang/{locale}; no file-name prefix in keys.
+        // Laravel auth/validation files are not imported implicitly.
+        'source_files' => ['saola'],
+        // Empty by default: hosts explicitly choose public/private client keys.
+        'client_scopes' => [],
         'default_locale' => env('SAO_DEFAULT_LOCALE', 'vi'),
         'fallback_locale' => env('SAO_FALLBACK_LOCALE', 'en'),
         'available_locales' => explode(',', env('SAO_AVAILABLE_LOCALES', 'vi,en')),
@@ -195,4 +200,4 @@ return [
         'log_queries' => env('SAO_LOG_QUERIES', false),
         'profiler' => env('SAO_PROFILER', false),
     ],
-]; 
+];

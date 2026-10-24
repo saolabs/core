@@ -24,6 +24,7 @@ class SaolaServiceProvider extends ServiceProvider
         }
 
         $this->registerConfigAliases();
+        $this->app->register(LanguageServiceProvider::class);
 
         // Registry chứa cấu hình ổn định của worker; manager chứa lựa chọn view
         // theo request nên phải là scoped để an toàn với Octane.
