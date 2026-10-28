@@ -26,7 +26,7 @@ class Module extends Router
         'generateAdminRoute' => ['genadminroute', 'generateAdminRoute'],
         'generateRESTfulRoute' => ['genrestfulroute', 'generateRESTfulRoute'],
         'addSubModule' => ['module', 'submodule', 'sub'],
-        'doGroupAction' => ['group'],
+        'doGroupAction' => ['group', 'routes'],
         'addChild' => ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'any', 'match'],
         'addChildRouter' => ['router', 'route', 'child', 'children'],
         'setRouteAttribute' => [

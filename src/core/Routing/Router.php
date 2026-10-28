@@ -117,6 +117,9 @@ class Router
      */
     public function __call($name, $arguments)
     {
+        if (isset(static::$macros[$macro = strtolower($name)])) {
+            return static::$macros[$macro]->call($this, ...$arguments);
+        }
         if (($t = count($arguments)) == 0) {
             return $this;
         }
@@ -141,9 +144,16 @@ class Router
         }
         $this->currentMethod = null;
 
-        return $this;
+        throw new \BadMethodCallException('Method ' . $name . ' does not exist on ' . static::class . '; a package adds builder methods with Router::macro().');
     }
 
+    /** @var array<string,\Closure> builder methods added by packages (saola/admin: menu/list/form), run with $this = the node */
+    protected static array $macros = [];
+
+    public static function macro(string $name, \Closure $macro): void
+    {
+        static::$macros[strtolower($name)] = $macro;
+    }
 
     public function permission(Permission $permission, Permission ...$permissions): static
     {

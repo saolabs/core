@@ -6,9 +6,10 @@ Repository, service và model dùng thẳng được cho module ứng dụng, kh
 - **Repository**: `findOrFail`, `firstOrFail`; `update/restore/erase/forceDelete` tới được bản ghi đã xoá mềm, một truy vấn, vẫn áp owner_id; `update()` nhận model đã nạp; `@trashed` hoạt động với soft delete (`'all'` = withTrashed); điều kiện trên cột chưa khai lọc đúng (`__get_columns`), cột sai tên ném lỗi; request chỉ lọc theo field khai báo; `query()` luôn dọn điều kiện nối chuỗi.
 - **Service**: gọi hàm không tồn tại ném `BadMethodCallException` (trước đây trả `$this`).
 - **Model**: concern `Uuid` bỏ kiểu trả về của `getKeyType/getIncrementing`, model core dùng được `HasUuids`.
+- **Route builder**: `Router::macro(name, closure)` cho gói thêm phương thức vào module (saola/admin: `menu/list/form`); `routes()` là alias của `group()`; gọi phương thức không tồn tại (có tham số) ném `BadMethodCallException` thay vì im lặng trả `$this`.
 - **make:module** sinh Model core, Repository chỉ khai `$model`, Service `extends ModuleService` với `$repositoryClass`, controller inject service; không interface/bind.
 
-Thay đổi hành vi cần lưu ý khi nâng cấp: cột sai tên trong điều kiện code và gọi hàm không tồn tại trên Service giờ ném lỗi; request không lọc theo cột không khai báo.
+Thay đổi hành vi cần lưu ý khi nâng cấp: cột sai tên trong điều kiện code và gọi hàm không tồn tại trên Service hoặc route builder giờ ném lỗi; request không lọc theo cột không khai báo.
 
 # Saola Core v1.0.3
 
