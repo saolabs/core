@@ -15,6 +15,19 @@
 
 ---
 
+## Quy tắc truy vấn và ghi (cập nhật 28/10/2026)
+
+**Điều kiện dạng mảng** cho `get/first/count/firstOrFail`: `'col' => v`, `'col >=' => x`, `'col' => [..]` (IN), `'col' => null` (IS NULL), `'col like' => '%a%'`, `'col:date' => ...`; chỉ thị `@sortby`, `@select`, `@with`, `@trashed` (true = chỉ đã xoá, false = còn sống, `'all'` = cả hai), `@limit`. Có thể nối chuỗi kiểu Eloquent trước khi thực thi: `$repo->where(fn ($q) => ...)->orWhereIn('id', fn ($s) => $s->select(...)->from(...))->orderByDesc('x')->lockForUpdate()->firstOrFail(['id' => $id])`.
+
+- **Cột sai tên báo lỗi.** Điều kiện do code viết trên cột bảng không có ném `InvalidArgumentException` (trước đây bị bỏ qua âm thầm, có thể làm mất bộ lọc tenant). Chỉ khi không đọc được schema thì điều kiện mới bị bỏ qua như cũ. Khoá có tiền tố bảng (`'t.col'`) không bị kiểm.
+- **Request chỉ lọc theo field khai báo.** `getResults($request)` dùng `getDeclaredFields()` (khoá, fillable, mặc định, timestamp); cột khác của bảng không lọc/sắp/tìm được qua URL.
+- **`@limit` trong mảng điều kiện đếm tổng** (`totalCount`, thêm một câu `count(*)`); `->limit(n)` nối chuỗi thì không đếm.
+- **Trạng thái được dọn sau mỗi truy vấn**, kể cả khi dựng truy vấn ném lỗi: điều kiện nối chuỗi không rò sang truy vấn sau (quan trọng với repository singleton trong worker).
+- **`findOrFail($id)`, `firstOrFail($args)`** ném `ModelNotFoundException` (404 qua HTTP).
+- **`update($idOrModel, $data)`** đọc bản ghi một lần qua repository (áp owner_id, thấy cả bản ghi đã xoá mềm) rồi lưu: 2 truy vấn. Truyền thẳng model đã nạp (ví dụ vừa `lockForUpdate`) thì chỉ còn câu `update`. Mọi ghi phát sự kiện CRUD (`creating/created/updating/updated/...`), nên đừng ghi thẳng bằng Eloquent.
+
+**ModuleService**: khai `$repositoryClass` là có `find/findOrFail/create/update/delete/moveToTrash/restoreFromTrash/erase` (id int hoặc UUID). Thao tác ghi ném lỗi thật; đọc (`getResults/getDetail/getTrashedResults`) lỗi thì trả rỗng nhưng luôn `report()` exception. Gọi hàm không tồn tại trên Service ném `BadMethodCallException`.
+
 ## 📋 DANH SÁCH CÁC HÀM PUBLIC TRUY VẤN DỮ LIỆU
 
 ### 1. NHÓM LẤY DỮ LIỆU CƠ BẢN (GettingAction)

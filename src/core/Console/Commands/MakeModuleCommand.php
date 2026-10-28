@@ -65,6 +65,13 @@ class MakeModuleCommand extends Command
         }
 
         $this->ignoredTargets = $this->resolveIgnoredTargets();
+        // A repository needs its model, a service its repository: skipping one skips what depends on it.
+        foreach (['model' => 'repository', 'repository' => 'service'] as $needed => $dependent) {
+            if (($this->ignoredTargets[$needed] ?? false) && !($this->ignoredTargets[$dependent] ?? false)) {
+                $this->ignoredTargets[$dependent] = true;
+                $this->warn("Skipping {$dependent}: it depends on the ignored {$needed}.");
+            }
+        }
         $this->moduleRouteSlug = $this->resolveRouteSlug($moduleSlug);
         $this->modelName = $this->resolveModelName($targetModule);
 
@@ -293,10 +300,12 @@ class MakeModuleCommand extends Command
         $moduleSlug = Str::snake($moduleName);
         $modelSlug = Str::snake($this->modelName);
 
+        $noService = $this->ignoredTargets['service'] ?? false;
         $providerReplacements = [
-            '{{ServiceUseStatement}}' => ($this->ignoredTargets['service'] ?? false)
-                ? ''
-                : 'use {{Namespace}}\\Services\\{{ModuleName}}Service;',
+            // Controllers receive the module service by constructor injection; no interface, the container autowires it.
+            "{{ServiceUse}}\n" => $noService ? '' : "use {{Namespace}}\\Services\\{{ModuleName}}Service;\n",
+            "{{ServiceConstructor}}\n" => $noService ? '' : "    public function __construct(private {{ModuleName}}Service \$service) {}\n\n",
+            '{{ServiceIndexData}}' => $noService ? '[]' : '$this->service->getResults($request)',
             '{{AdminControllerUseStatement}}' => ($this->ignoredTargets['admin'] ?? false)
                 ? ''
                 : 'use {{Namespace}}\\Http\\Controllers\\Admin\\{{ModuleName}}Controller as Admin{{ModuleName}}Controller;',
@@ -306,9 +315,6 @@ class MakeModuleCommand extends Command
             '{{WebControllerUseStatement}}' => ($this->ignoredTargets['web'] ?? false)
                 ? ''
                 : 'use {{Namespace}}\\Http\\Controllers\\Web\\{{ModuleName}}Controller as Web{{ModuleName}}Controller;',
-            '{{RegisterBindings}}' => ($this->ignoredTargets['service'] ?? false)
-                ? '        // Service binding is skipped via --ignore-service option.'
-                : '        $this->app->singleton({{ModuleName}}Service::class, {{ModuleName}}Service::class);',
             '{{AdminRoutesBlock}}' => ($this->ignoredTargets['admin'] ?? false)
                 ? ''
                 : "        System::context('admin')\n            ->module('{{module_route_name}}')\n            ->controller(Admin{{ModuleName}}Controller::class)\n            ->prefix('{{module_route_name}}')\n            ->as('{{module_route_name}}')\n            ->group(function (\$module) {\n                \$module->get('/', 'index')->name('index');\n            });",
@@ -326,6 +332,7 @@ class MakeModuleCommand extends Command
             '{{module_route_name}}' => $this->moduleRouteSlug,
             '{{ModelName}}' => $this->modelName,
             '{{model_name}}' => $modelSlug,
+            '{{model_table}}' => Str::snake(Str::pluralStudly($this->modelName)),
             '{{MODULE_NAME}}' => Str::upper($moduleSlug),
             '{{MODULE_ROUTE_NAME}}' => Str::upper($this->moduleRouteSlug),
             '{{MODEL_NAME}}' => Str::upper($modelSlug),

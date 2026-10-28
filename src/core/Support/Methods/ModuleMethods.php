@@ -37,8 +37,9 @@ trait ModuleMethods
      */
     public function initModule()
     {
-        if($this->repositoryClass){
+        if ($this->repositoryClass && !$this->repository) {
             $this->setRepositoryClass($this->repositoryClass);
+            $this->repository = app($this->repositoryClass);
         }
         
         
@@ -69,7 +70,7 @@ trait ModuleMethods
     }
 
     public function getRepository(){
-        return $this->repository??$this->repositoryClass?app($this->repositoryClass):null;
+        return $this->repository ?? ($this->repositoryClass ? app($this->repositoryClass) : null);
     }
 
     /**
@@ -97,6 +98,8 @@ trait ModuleMethods
         try {
             return $callback($this->repository);
         } catch (\Throwable $e) {
+            // Reads fall back to an empty result, but never silently: the failure goes to the exception handler/log.
+            report($e);
             if ($logError) {
                 Log::warning('RepositoryTap error', [
                     'exception' => get_class($e),

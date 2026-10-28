@@ -45,7 +45,8 @@ trait Uuid
      *
      * @return bool
      */
-    public function getIncrementing(): bool
+    /** No return type, like Eloquent's own: a model can still use Laravel's HasUuids/HasUlids. */
+    public function getIncrementing()
     {
         return !$this->useUuid || $this->useUuid === 'no' || $this->useUuid !== 'primary';
     }
@@ -55,7 +56,7 @@ trait Uuid
      *
      * @return string
      */
-    public function getKeyType(): string
+    public function getKeyType()
     {
         return (!$this->useUuid || $this->useUuid === 'no' || $this->useUuid !== 'primary')
             ? parent::getKeyType()

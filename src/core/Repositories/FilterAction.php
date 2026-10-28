@@ -608,7 +608,7 @@ trait FilterAction
      */
     final public function prepareFilter($request)
     {
-        $fields = array_merge([$this->required], $this->getFields());
+        $fields = array_merge([$this->required], $this->getDeclaredFields());
         $this->buildOrderBy($request);
         $disableWhereColumns = is_array($this->ignoreRequestParams) ? $this->ignoreRequestParams : [];
         if ($data = $request->all()) {
@@ -782,7 +782,7 @@ trait FilterAction
             }
         }
         if ($orderBy) {
-            $fields = array_merge([$this->required], $this->getFields());
+            $fields = array_merge([$this->required], $this->getDeclaredFields());
             /**
              * orderby = [
              * column => ASC|DESC
@@ -915,9 +915,18 @@ trait FilterAction
     }
 
 
+    /**
+     * Fields a request may filter, sort or search on: only those the model declares (key, fillable, defaults,
+     * timestamps). Never the table's other columns, so a client cannot probe password hashes, tokens or secrets.
+     */
+    public function getDeclaredFields(): array
+    {
+        return array_merge([$this->_primaryKeyName], $this->_model->__get_fields());
+    }
+
     final public function getSearchFields($request)
     {
-        $fields = $this->getFields();
+        $fields = $this->getDeclaredFields();
         $sb = $this->searchable;
         $sl = [];
         if ($s = $request->searchby??($request->searchBy??$request->search_by)) {

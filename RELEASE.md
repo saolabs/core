@@ -1,3 +1,15 @@
+# Chưa phát hành (sau v2.4.0)
+
+Repository, service và model dùng thẳng được cho module ứng dụng, không cần lớp bọc:
+
+- **ModuleService** nạp repository từ `$repositoryClass` (trước đây chỉ ghi tên lớp); CRUD nhận id UUID; thêm `find`, `findOrFail`; ghi không còn trả `false` âm thầm khi lỗi; `restoreFromTrash` gọi đúng `restore`; đọc lỗi luôn được `report()`; `EmptyCollection`/`EmptyMask` không còn abstract nên giá trị rỗng dựng được.
+- **Repository**: `findOrFail`, `firstOrFail`; `update/restore/erase/forceDelete` tới được bản ghi đã xoá mềm, một truy vấn, vẫn áp owner_id; `update()` nhận model đã nạp; `@trashed` hoạt động với soft delete (`'all'` = withTrashed); điều kiện trên cột chưa khai lọc đúng (`__get_columns`), cột sai tên ném lỗi; request chỉ lọc theo field khai báo; `query()` luôn dọn điều kiện nối chuỗi.
+- **Service**: gọi hàm không tồn tại ném `BadMethodCallException` (trước đây trả `$this`).
+- **Model**: concern `Uuid` bỏ kiểu trả về của `getKeyType/getIncrementing`, model core dùng được `HasUuids`.
+- **make:module** sinh Model core, Repository chỉ khai `$model`, Service `extends ModuleService` với `$repositoryClass`, controller inject service; không interface/bind.
+
+Thay đổi hành vi cần lưu ý khi nâng cấp: cột sai tên trong điều kiện code và gọi hàm không tồn tại trên Service giờ ném lỗi; request không lọc theo cột không khai báo.
+
 # Saola Core v1.0.3
 
 Authentication models now share the system model capabilities used by ordinary Saola models. Applications can extend `Saola\Core\Models\Authenticatable` and keep Laravel authentication/password reset together with system metadata, UUID configuration, lifecycle hooks, file helpers, and BaseRepository integration.

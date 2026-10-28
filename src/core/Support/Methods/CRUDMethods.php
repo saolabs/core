@@ -258,7 +258,7 @@ trait CRUDMethods
         }, EmptyCollection::class);
     }
 
-    public function getDetail(int|array $args = [])
+    public function getDetail(int|string|array $args = [])
     {
         return $this->repositoryTap(function ($repository) use ($args) {
             return $repository->detail($args);
@@ -272,47 +272,53 @@ trait CRUDMethods
         }, EmptyCollection::class);
     }
 
-    public function moveToTrash(int|array $args = [])
+    /** Record by key (int or UUID), or null. */
+    public function find(int|string $id)
     {
-        return $this->repositoryTap(function ($repository) use ($args) {
-            return $repository->moveToTrash($args);
-        }, false);
-    }
-    public function restoreFromTrash(int|array $args = [])
-    {
-        return $this->repositoryTap(function ($repository) use ($args) {
-            return $repository->restoreFromTrash($args);
-        }, false);
-    }
-    public function delete(int|array $args = [])
-    {
-        return $this->repositoryTap(function ($repository) use ($args) {
-            return $repository->delete($args);
-        }, false);
-    }
-    public function erase(int|array $args = [])
-    {
-        return $this->repositoryTap(function ($repository) use ($args) {
-            return $repository->erase($args);
-        }, false);
+        return $this->repositoryOrFail()->find($id);
     }
 
-    public function update(int|array $args = [], array $data = [])
+    /** Record by key, or a ModelNotFoundException (404 over HTTP). */
+    public function findOrFail(int|string $id)
     {
-        return $this->repositoryTap(function ($repository) use ($args, $data) {
-            return $repository->update($args, $data);
-        }, false);
+        return $this->repositoryOrFail()->findOrFail($id);
+    }
+
+    // Writes go straight to the repository: a failed insert/update must surface, never turn into a silent false.
+    public function moveToTrash(int|string|array $id)
+    {
+        return $this->repositoryOrFail()->moveToTrash($id);
+    }
+    public function restoreFromTrash(int|string|array $id)
+    {
+        return $this->repositoryOrFail()->restore($id);
+    }
+    public function delete(int|string|array|null $id = null)
+    {
+        return $this->repositoryOrFail()->delete($id);
+    }
+    public function erase(int|string|array $id)
+    {
+        return $this->repositoryOrFail()->erase($id);
+    }
+    public function update(int|string|array|\Illuminate\Database\Eloquent\Model $id, array $data = [])
+    {
+        return $this->repositoryOrFail()->update($id, $data);
     }
     public function create(array $data = [])
     {
-        return $this->repositoryTap(function ($repository) use ($data) {
-            return $repository->create($data);
-        }, false);
+        return $this->repositoryOrFail()->create($data);
     }
     public function createMany(array $data = [])
     {
-        return $this->repositoryTap(function ($repository) use ($data) {
-            return $repository->createMany($data);
-        }, false);
+        return $this->repositoryOrFail()->createMany($data);
+    }
+
+    protected function repositoryOrFail(): BaseRepository
+    {
+        if (!$this->repository instanceof BaseRepository) {
+            throw new \LogicException(static::class.' has no repository: set $repositoryClass.');
+        }
+        return $this->repository;
     }
 }
