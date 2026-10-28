@@ -10,7 +10,7 @@ use Saola\Core\System;
 
 class ModuleServiceProvider extends CoreModuleServiceProvider
 {
-    public function routes(): void
+    public function define(): void
     {
 {{AdminRoutesBlock}}
 

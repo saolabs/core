@@ -1,3 +1,7 @@
+# Saola Core v2.6.0
+
+- **ModuleServiceProvider**: hook chính đổi tên `routes()` → `define()` (khai cả route lẫn menu/list/form, quyền gắn module); `routes()` thành tuỳ chọn, `define()` mặc định gọi nó nên module cũ chạy nguyên. Ba hook `define/menus/permissions` đều tuỳ chọn. `make:module` sinh `define()`.
+
 # Saola Core v2.5.0
 
 Repository, service và model dùng thẳng được cho module ứng dụng, không cần lớp bọc:
