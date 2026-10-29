@@ -23,6 +23,7 @@ class BundleManifest
     protected ?bool $isDev = null;
 
     protected ?array $buildInfo = null;
+    protected ?array $contextBuilds = null;
 
     /** Đang chạy Vite dev server không. */
     public function isDev(): bool
@@ -56,11 +57,21 @@ class BundleManifest
     /** URL CSS của app, null nếu build không sinh ra. */
     public function cssUrl(string $context): ?string
     {
-        $source = 'resources/css/app.css';
+        $build = $this->contextBuild($context);
+        $configured = config("sao.assets.css.{$context}");
+        // In local mode a stylesheet is optional. Vite handles CSS imported
+        // by bootstrap; do not request an unrelated legacy entry in dev.
+        if ($this->isDev() && in_array($build['mode'] ?? null, ['standalone', 'theme'], true)
+            && $configured === null && empty($build['defaultCss'])) return null;
+        $default = $build['defaultCss'] ?? 'resources/css/app.css';
+        $source = $this->source($context, config("sao.assets.css.{$context}", $default));
         if ($this->isDev()) {
             return $this->devUrl($source);
         }
-        $file = $this->manifest($context)[$source]['file'] ?? null;
+        $manifest = $this->manifest($context);
+        // A context bundle may import its own stylesheet rather than declaring
+        // a second Vite entry. Resolve the emitted CSS from that JS entry.
+        $file = $manifest[$source]['file'] ?? ($manifest[$this->entrySource($context)]['css'][0] ?? null);
 
         return $file ? asset("static/saola/{$context}/{$file}") : null;
     }
@@ -92,7 +103,7 @@ class BundleManifest
     public function bundleUrls(string $context): array
     {
         $themes = app(ThemeService::class);
-        $active = $themes->active($context);
+        $active = app(ContextSource::class)->isLocal($context) ? null : $themes->active($context);
 
         return array_values(array_filter([
             ...app(PackageAssets::class)->urls($context),
@@ -103,6 +114,38 @@ class BundleManifest
     public function importMap(string $context): array
     {
         return ['@saolabs/client' => $this->entryUrl($context)];
+    }
+
+    /** Trusted classification for the exact URLs sent to the client loader. */
+    public function bundleKinds(string $context): array
+    {
+        $kinds = array_fill_keys(app(PackageAssets::class)->urls($context), 'package');
+        $themes = app(ThemeService::class);
+        $active = app(ContextSource::class)->isLocal($context) ? null : $themes->active($context);
+        $url = $active ? ($themes->assets($active, $context)['js'] ?? null) : null;
+        if (is_string($url) && $url !== '') $kinds[$url] = 'theme';
+        return $kinds;
+    }
+
+    /** Build-time context source metadata; no absolute vendor paths are exposed. */
+    public function contextBuild(string $context): array
+    {
+        if ($this->contextBuilds === null) {
+            $file = public_path('static/saola/contexts.json');
+            $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+            $this->contextBuilds = is_array($data) ? $data : [];
+        }
+        $value = $this->contextBuilds[$context] ?? [];
+        return is_array($value) ? $value : [];
+    }
+
+    /** Resolve a logical CSS source to the generated package overlay used by Vite. */
+    public function source(string $context, string $logical): string
+    {
+        $source = $this->contextBuild($context)['css'][$logical] ?? $logical;
+        if (!is_string($source) || !preg_match('~^[A-Za-z0-9_-][A-Za-z0-9_./-]*$~D', $source)
+            || in_array('..', explode('/', $source), true)) return $logical;
+        return $source;
     }
 
     /**
@@ -147,6 +190,7 @@ class BundleManifest
     {
         $this->manifests = [];
         $this->buildInfo = null;
+        $this->contextBuilds = null;
         $this->isDev = null;
     }
 

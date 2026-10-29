@@ -294,4 +294,77 @@ class ThemeServiceTest extends TestCase
     {
         $this->assertContains('storefront', $this->theme()->available());
     }
+
+    public function test_theme_o_duong_moi_context_slug_thang_duong_cu(): void
+    {
+        mkdir($this->viewRoot . '/web/storefront', 0777, true);
+        try {
+            $this->assertSame('web.storefront', $this->theme()->base('storefront', 'web'));
+
+            $this->theme()->activate('storefront', 'web');
+            $this->assertTrue($this->theme()->apply('web'));
+            $this->assertSame('web.storefront.modules.roster.index', $this->modulePath());
+            $this->assertSame(['storefront'], $this->theme()->available('web'));
+        } finally {
+            @rmdir($this->viewRoot . '/web/storefront');
+            @rmdir($this->viewRoot . '/web');
+        }
+    }
+
+    public function test_chi_co_duong_cu_thi_base_van_theo_duong_cu(): void
+    {
+        $this->assertSame('themes.storefront', $this->theme()->base('storefront', 'web'));
+    }
+
+    public function test_slug_cu_trong_cache_van_doc_duoc_va_ghi_lai_dang_tran(): void
+    {
+        foreach (['themes.storefront', 'web.storefront'] as $old) {
+            Cache::forever(ThemeService::CACHE_PREFIX . 'web', $old);
+            $this->assertSame('storefront', $this->theme()->active('web'));
+            $this->assertTrue($this->theme()->apply('web'));
+            $this->assertSame('storefront', Cache::get(ThemeService::CACHE_PREFIX . 'web')['slug']);
+        }
+
+        $this->theme()->activate('themes.storefront', 'web');
+        $this->assertSame('storefront', Cache::get(ThemeService::CACHE_PREFIX . 'web')['slug']);
+    }
+
+    public function test_slug_trung_ten_context_bi_tu_choi(): void
+    {
+        mkdir($this->viewRoot . '/web/web', 0777, true);
+        try {
+            $this->assertFalse($this->theme()->exists('web', 'web'));
+            $this->expectException(\InvalidArgumentException::class);
+            $this->theme()->activate('web', 'web');
+        } finally {
+            @rmdir($this->viewRoot . '/web/web');
+            @rmdir($this->viewRoot . '/web');
+        }
+    }
+
+    public function test_cung_slug_o_hai_context_khong_va_cham(): void
+    {
+        app(ViewContextManager::class)->registerContext('admin', ['base' => 'admin']);
+        mkdir($this->viewRoot . '/web/storefront', 0777, true);
+        mkdir($this->viewRoot . '/admin/storefront', 0777, true);
+        try {
+            $this->assertSame('web.storefront', $this->theme()->base('storefront', 'web'));
+            $this->assertSame('admin.storefront', $this->theme()->base('storefront', 'admin'));
+
+            $this->theme()->activate('storefront', 'web');
+            $this->theme()->apply('web');
+            $this->theme()->apply('admin');
+
+            $views = app(ViewContextManager::class);
+            $this->assertSame('web.storefront.modules.roster.index', $this->modulePath());
+            $this->assertSame('web.modules.roster.index', $views->fallbackViewName('web.storefront.modules.roster.index'));
+            $this->assertNull($views->fallbackViewName('admin.storefront.modules.roster.index'));
+            $this->assertNull($this->theme()->active('admin'));
+        } finally {
+            @rmdir($this->viewRoot . '/web/storefront');
+            @rmdir($this->viewRoot . '/web');
+            @rmdir($this->viewRoot . '/admin/storefront');
+            @rmdir($this->viewRoot . '/admin');
+        }
+    }
 }

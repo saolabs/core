@@ -1,3 +1,9 @@
+# Saola Core v2.7.0
+
+Adds conventional context sources and package manifests, safe theme installation and context-aware theme namespaces, per-context CSS manifests and registration of the Blade directives needed by plain contexts. Context/module child routes support the HTTP methods covered by the new regression tests.
+
+Validation: 191 tests, 610 assertions. Existing language APIs are retained; applications upgrading theme paths should rebuild their context views and assets. Released as a Composer Git tag; no application database migration is included.
+
 # Chưa phát hành (sau v2.5.0)
 
 - **ModuleServiceProvider**: hook chính đổi tên `routes()` → `define()` (khai cả route lẫn menu/list/form, quyền gắn module); `routes()` thành tuỳ chọn, `define()` mặc định gọi nó nên module cũ chạy nguyên. Ba hook `define/menus/permissions` đều tuỳ chọn. `make:module` sinh `define()`.

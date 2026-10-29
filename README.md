@@ -7,7 +7,11 @@
 
 **Saola Core** — PHP/Laravel backend library của hệ sinh thái [Saola](https://github.com/saolabs), framework full-stack để xây dựng ứng dụng web reactive với Laravel + TypeScript + `.sao` templates.
 
+Nền lang: [Language System](../docs/LANGUAGE_SYSTEM.md). Core có `LanguageSources`, `LanguageTree`, strict `LanguageJson`, `LanguageStore`, scoped `TextResolver` và projection `ClientCatalogs`. PHP `text()` dùng DB adapter, giữ nguyên Laravel `__()`. Source project/package theo `lang/{locale}/*.php`, tên file/package không prefix key. SSR dùng projection được phép; `response()` phát snapshot server chuẩn bị ở request attribute `saola.i18n` vào metadata page-data.
+
 ---
+
+Chế độ nguồn context độc lập/gói và lựa chọn qua `.env` (source local chưa phát hành): [Context sources](docs/CONTEXT_SOURCES.md).
 
 ## Hệ sinh thái Saola
 

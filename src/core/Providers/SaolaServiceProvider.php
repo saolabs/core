@@ -24,6 +24,11 @@ class SaolaServiceProvider extends ServiceProvider
         }
 
         $this->registerConfigAliases();
+        $this->mergeConfigFrom(__DIR__.'/../../config/contexts.php', 'saola-contexts');
+        $this->app->register(LanguageServiceProvider::class);
+        // A plain context must render compiled .sao views with core alone.
+        // Laravel deduplicates this if an existing host registers it explicitly.
+        $this->app->register(BladeDirectiveServiceProvider::class);
 
         // Registry chứa cấu hình ổn định của worker; manager chứa lựa chọn view
         // theo request nên phải là scoped để an toàn với Octane.

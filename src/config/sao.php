@@ -40,8 +40,9 @@ return [
     | Themes
     |--------------------------------------------------------------------------
     |
-    | `directory` là namespace Blade chứa theme đã compile: theme `storefront`
-    | nằm ở `themes.storefront.*`. Khớp với khoá namespace trong sao.config.json.
+    | Theme `storefront` của context `web` có namespace `web.storefront.*`, khớp
+    | khoá namespace trong sao.config.json của gói. `directory` chỉ còn nhận diện
+    | bản cài cũ ở `themes.storefront.*` (tương thích một bản phát hành).
     |
     */
     'themes' => [
@@ -157,6 +158,11 @@ return [
     |
     */
     'i18n' => [
+        // Explicit Saola seed files under lang/{locale}; no file-name prefix in keys.
+        // Laravel auth/validation files are not imported implicitly.
+        'source_files' => ['saola'],
+        // Empty by default: hosts explicitly choose public/private client keys.
+        'client_scopes' => [],
         'default_locale' => env('SAO_DEFAULT_LOCALE', 'vi'),
         'fallback_locale' => env('SAO_FALLBACK_LOCALE', 'en'),
         'available_locales' => explode(',', env('SAO_AVAILABLE_LOCALES', 'vi,en')),
@@ -195,4 +201,4 @@ return [
         'log_queries' => env('SAO_LOG_QUERIES', false),
         'profiler' => env('SAO_PROFILER', false),
     ],
-]; 
+];

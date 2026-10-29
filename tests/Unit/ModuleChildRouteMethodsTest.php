@@ -41,6 +41,40 @@ class ModuleChildRouteMethodsTest extends TestCase
         Route::getRoutes()->refreshNameLookups();
     }
 
+    public function test_module_config_va_group_callback_giu_dung_kieu_va_route(): void
+    {
+        $module = System::context('admin')->module(['slug' => 'providers', 'prefix' => 'providers'])
+            ->controller(self::class)->title('Provider')->displayName('Provider');
+
+        $this->assertInstanceOf(\Saola\Core\Routing\Module::class, $module);
+        $result = $module->group(function (\Saola\Core\Routing\Module $m) use ($module) {
+            $this->assertSame($module, $m);
+            foreach (['get', 'post', 'put', 'delete'] as $method) {
+                $m->{$method}('/{id}', 'edit')->name($method)->viewModule('form');
+            }
+            $m->module(['slug' => 'nested', 'prefix' => 'nested'])
+                ->group(fn ($nested) => $nested->get('/', 'index')->name('index'));
+        });
+
+        $this->assertSame($module, $result);
+        $data = $module->toArray();
+        $this->assertSame('providers', $data['slug']);
+        $this->assertSame('providers', $data['prefix']);
+        $this->assertCount(5, $data['children']);
+        $this->assertSame(['get', 'post', 'put', 'delete'], array_column(array_slice($data['children'], 0, 4), 'method'));
+        $this->assertCount(1, $data['children'][4]['children']);
+    }
+
+    public function test_module_ho_tro_slug_callback_va_tra_cuu_module_cu(): void
+    {
+        $context = System::context('web');
+        $module = $context->module('site', fn ($m) => $m->get('/', 'index'));
+        $this->assertSame($module, $context->module('site'));
+        $this->assertCount(1, $module->toArray()['children']);
+        $other = $context->module('other', ['prefix' => '/custom']);
+        $this->assertSame('/custom', $other->toArray()['prefix']);
+    }
+
     public function test_any_tren_module_tao_route_con_nhan_moi_method(): void
     {
         $this->push(function ($module) {

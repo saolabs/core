@@ -457,12 +457,13 @@ if(!function_exists('getConfig')) {
 }
 
 if(!function_exists('text')){
-    function text($textAddress = null, $replace = null, $default = null, $locale = 'vi'){
-        // return __($textAddress, $default, $locale);
-        if(is_string($replace) && !$default){
+    function text($textAddress = null, $replace = null, $default = null, $locale = null){
+        if(is_string($replace) && $default === null){
             $default = $replace;
         }
         $replace = is_array($replace) ? $replace : [];
-        return $default?:$textAddress;
+        return app(\Saola\Core\Language\TextResolver::class)->text(
+            (string) $textAddress, $replace, $default, $locale,
+        );
     }
 }
