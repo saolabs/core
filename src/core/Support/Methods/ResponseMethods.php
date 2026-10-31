@@ -195,7 +195,7 @@ trait ResponseMethods
         // Merge headers mặc định
         // Only an explicitly prepared, server-side projection may enter page-data.
         if (request()->attributes->has('saola.i18n')) {
-            $responseData['i18n'] = request()->attributes->get('saola.i18n');
+            $responseData['i18n'] = \Saola\Core\Language\ClientCatalogs::withoutHeld(request()->attributes->get('saola.i18n'), request()->header('X-Saola-Language'));
         }
         $defaultHeaders = [
             'Content-Type' => 'application/json; charset=utf-8',

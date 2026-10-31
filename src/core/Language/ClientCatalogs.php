@@ -48,6 +48,32 @@ final class ClientCatalogs
         ];
     }
 
+    /**
+     * The client config without the catalogs the browser already holds at the same revision. A running app declares them in
+     * `X-Saola-Language: <scope>;<locale>=<revision>;…`; without that header (first page load, older clients, tests) everything is
+     * sent as before. A changed scope or revision always travels again.
+     */
+    public static function withoutHeld(array $config, ?string $held): array
+    {
+        if (!$held || !isset($config['scope']) || !is_array($config['catalogs'] ?? null)) {
+            return $config;
+        }
+        $parts = explode(';', $held);
+        if (array_shift($parts) !== $config['scope']) {
+            return $config;
+        }
+        $have = [];
+        foreach ($parts as $part) {
+            [$code, $revision] = array_pad(explode('=', $part, 2), 2, '');
+            if ($code !== '' && ctype_digit($revision)) {
+                $have[$code] = (int) $revision;
+            }
+        }
+        $config['catalogs'] = array_filter($config['catalogs'], fn ($catalog, $code) => ($have[$code] ?? null) !== ($catalog['revision'] ?? null), ARRAY_FILTER_USE_BOTH);
+
+        return $config;
+    }
+
     public function clientConfig(string $scope, ?string $locale = null): array
     {
         $raw = $this->resolver->clientConfig($locale);

@@ -1,3 +1,9 @@
+# Saola Core v2.7.1
+
+Page data no longer re-sends language dictionaries the browser already holds. A running client declares them in `X-Saola-Language: <scope>;<locale>=<revision>;…` and `ClientCatalogs::withoutHeld()` leaves those catalogs out of the response's `i18n`; a changed scope or revision still travels. Without the header (first page load, older clients, tests, API calls) responses are unchanged.
+
+Validation: 194 tests, 619 assertions (new `ClientCatalogsHeldTest`), and saola/admin's 104 tests against this core. In Gehihi admin, client-side page navigations dropped from 52–61 kB to 9.5–16.6 kB. Pairs with @saolabs/client 1.5.2; either may be deployed first.
+
 # Saola Core v2.7.0
 
 Adds conventional context sources and package manifests, safe theme installation and context-aware theme namespaces, per-context CSS manifests and registration of the Blade directives needed by plain contexts. Context/module child routes support the HTTP methods covered by the new regression tests.
