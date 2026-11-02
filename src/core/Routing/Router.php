@@ -162,6 +162,29 @@ class Router
         return $this;
     }
 
+    /** Client aliases only. Laravel middleware is deliberately declared separately. */
+    public function clientMiddleware(string|array ...$middleware): static
+    {
+        $names = [];
+        foreach ($middleware as $value) {
+            foreach (is_array($value) ? $value : [$value] as $name) {
+                if (!is_string($name) || !preg_match('/^[A-Za-z_][\w.-]*(?::[^\s]*)?$/D', $name)) {
+                    throw new \InvalidArgumentException('Client middleware must be a named alias with optional parameters.');
+                }
+                $names[] = $name;
+            }
+        }
+        $this->data['clientMiddleware'] = array_merge($this->data['clientMiddleware'] ?? [], $names);
+        return $this;
+    }
+
+    protected function clientRouteMeta(): array
+    {
+        $parent = $this->parent ? ($this->parent->clientRouteMeta()['middleware'] ?? []) : [];
+        $names = array_merge($parent, $this->data['clientMiddleware'] ?? []);
+        return $names === [] ? [] : ['middleware' => $names];
+    }
+
     public function toArray(): array
     {
         $data = $this->data;

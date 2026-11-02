@@ -245,7 +245,7 @@ trait RouteMethods
                 $routeUri = $laravelRoute->uri();
                 $routeName = $laravelRoute->getName();
                 if ($routeName) {
-                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath($routeName));
+                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath($routeName), $this->clientRouteMeta());
                 }
             } catch (\Throwable $e) {
                 // Bỏ qua lỗi nếu không thể lấy URI (ví dụ: khi chạy artisan commands)
@@ -256,7 +256,7 @@ trait RouteMethods
             $routeName = $this->getFullRouteName();
             if ($routeName && $this->data['uri']) {
                 // Sử dụng URI từ data thay vì từ Laravel route object
-                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath($routeName));
+                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath($routeName), $this->clientRouteMeta());
             }
         }
 

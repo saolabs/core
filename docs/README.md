@@ -11,6 +11,7 @@
 ### 🎨 Service Layer
 
 - **[Auth API](./AUTH_API.md)** - Session, Google/GitHub, public user snapshots và đồng bộ client
+- **[Client middleware](./CLIENT_MIDDLEWARE.md)** - Khai báo middleware SPA tại module và đăng ký provider trong project
 - **[Service Architecture Analysis](./SERVICE_ARCHITECTURE_ANALYSIS.md)** - Phân tích chi tiết kiến trúc Service Layer
 - **[Service Architecture Examples](./SERVICE_ARCHITECTURE_EXAMPLES.md)** - Các ví dụ cụ thể về cách sử dụng Service
 - **[Response Methods Usage](./RESPONSE_METHODS_USAGE.md)** - Hướng dẫn chi tiết về ResponseMethods (tự động View/JSON)
