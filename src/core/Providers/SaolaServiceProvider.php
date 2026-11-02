@@ -57,6 +57,10 @@ class SaolaServiceProvider extends ServiceProvider
 
         // Callback Saola::share đăng ký lúc boot phải sống qua mọi request.
         $this->app->singleton(\Saola\Core\Services\ClientShare::class);
+        $this->app->scoped(\Saola\Core\Services\ClientAuth::class);
+        $this->app->make(\Saola\Core\Services\ClientShare::class)->share('auth',
+            fn ($request) => app(\Saola\Core\Services\ClientAuth::class)->export($request));
+        $this->app->register(AuthServiceProvider::class);
         // installed.json chỉ đổi khi composer chạy: đọc một lần mỗi worker.
         $this->app->singleton(\Saola\Core\Services\PackageAssets::class);
 

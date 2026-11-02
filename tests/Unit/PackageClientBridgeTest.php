@@ -88,8 +88,11 @@ class PackageClientBridgeTest extends TestCase
         Saola::share('broken', fn () => throw new \RuntimeException('x'));
 
         $share = app(ClientShare::class);
-        $this->assertSame(['who' => ['path' => 'a']], $share->export(Request::create('/a')));
-        $this->assertSame(['who' => ['path' => 'b']], $share->export(Request::create('/b')));
+        $first = $share->export(Request::create('/a'));
+        $second = $share->export(Request::create('/b'));
+        $this->assertArrayHasKey('auth', $first);
+        $this->assertSame(['who' => ['path' => 'a']], array_diff_key($first, ['auth' => true]));
+        $this->assertSame(['who' => ['path' => 'b']], array_diff_key($second, ['auth' => true]));
 
         $this->expectException(\InvalidArgumentException::class);
         Saola::share('bad key', fn () => 1);

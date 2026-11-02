@@ -1,3 +1,11 @@
+# Saola Core v2.8.0
+
+Adds public auth snapshots shared by SSR and SPA page-data, and an opt-in session Auth API independent of view contexts. Includes password login/logout, CSRF/session rotation, throttling, and stateful Google/GitHub OAuth through optional Socialite with an application-owned identity resolver. Public users default to id, name and username.
+
+Pairs with @saolabs/client 1.6.0 and saola/compiler 3.3.0 for reactive auth views. Existing applications opt in through sao.auth_api; see docs/AUTH_API.md for provider credentials and resolver setup. No application migrations are included.
+
+Validation: 207 tests, 724 assertions; Composer validation. OAuth drivers tested with simulated provider responses.
+
 # Saola Core v2.7.1
 
 Page data no longer re-sends language dictionaries the browser already holds. A running client declares them in `X-Saola-Language: <scope>;<locale>=<revision>;…` and `ClientCatalogs::withoutHeld()` leaves those catalogs out of the response's `i18n`; a changed scope or revision still travels. Without the header (first page load, older clients, tests, API calls) responses are unchanged.

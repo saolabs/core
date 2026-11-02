@@ -132,6 +132,7 @@ trait ResponseMethods
     {
         // Nếu có bladePath, render view và thêm vào response
         $responseData = ['data' => $data];
+        $responseData['auth'] = app(\Saola\Core\Services\ClientAuth::class)->export(request());
 
         if ($bladePath) {
             try {

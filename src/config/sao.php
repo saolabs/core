@@ -1,6 +1,25 @@
 <?php
 
 return [
+    // Opt in to avoid conflicting with authentication routes owned by an existing host.
+    'auth_api' => [
+        'enabled' => false,
+        'prefix' => 'auth',
+        'guard' => null,
+        'password' => true,
+        'username' => 'email',
+        'redirect' => '/',
+        'social_user_resolver' => null, // application class implementing SocialUserResolver
+        'providers' => [
+            'google' => ['enabled' => false, 'label' => 'Google'],
+            'github' => ['enabled' => false, 'label' => 'GitHub'],
+        ],
+    ],
+    // Default guard is always included. Only explicitly selected user fields enter HTML/JSON.
+    'client_auth' => [
+        'guards' => [],
+        'user_fields' => ['name', 'username'],
+    ],
     /*
     |--------------------------------------------------------------------------
     | Saola Core Configuration

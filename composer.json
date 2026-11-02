@@ -17,9 +17,11 @@
     "require-dev": {
         "laravel/octane": "^2.0",
         "phpunit/phpunit": "^11.0",
-        "orchestra/testbench": "^10.0"
+        "orchestra/testbench": "^10.0",
+        "laravel/socialite": "^5.0"
     },
     "suggest": {
+        "laravel/socialite": "Enable Google, GitHub and other OAuth providers for the standard Auth API.",
         "laravel/ai": "Enable Laravel 13 AI SDK integrations (agents, embeddings, image/audio generation).",
         "laravel/boost": "Use Boost MCP workflows for AI-assisted upgrades and maintenance."
     },
