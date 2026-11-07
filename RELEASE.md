@@ -1,3 +1,9 @@
+# Saola Core v2.9.1
+
+Removes the PHP 8.4 "Implicitly marking parameter as nullable" deprecations printed on every artisan and test run: `FilterAction::setResourceClass/setCollectionClass` and `ViewStorageManager::addEventListener/addEventQuickHandle/subscribeState` now declare `?string`. `MenuLink::addIcon` drops two defaults that PHP already ignored because they come before a required parameter. No behaviour change.
+
+Validation: 210 tests, 732 assertions under PHP 8.4.1; `php -l` across `src/` reports no deprecations.
+
 # Saola Core v2.8.0
 
 Adds public auth snapshots shared by SSR and SPA page-data, and an opt-in session Auth API independent of view contexts. Includes password login/logout, CSRF/session rotation, throttling, and stateful Google/GitHub OAuth through optional Socialite with an application-owned identity resolver. Public users default to id, name and username.
