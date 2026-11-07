@@ -21,7 +21,7 @@ class MenuLink extends HtmlDom{
 
     }
 
-    public function addIcon($name = 'icon', $pos = 'prepend', $icon)
+    public function addIcon($name, $pos, $icon)
     {
         if(!in_array(strtolower($pos), ['append', 'prepend', 'before', 'after'])) return false;
         call_user_func_array([$this, $pos], [$icon]);

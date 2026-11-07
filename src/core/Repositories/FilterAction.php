@@ -1270,13 +1270,13 @@ trait FilterAction
         return $this;
     }
 
-    public function setResourceClass(string $resourceClass = null)
+    public function setResourceClass(?string $resourceClass = null)
     {
         $this->resourceClass = $resourceClass;
         return $this;
     }
 
-    public function setCollectionClass(string $collectionClass = null)
+    public function setCollectionClass(?string $collectionClass = null)
     {
         $this->collectionClass = $collectionClass;
         return $this;
