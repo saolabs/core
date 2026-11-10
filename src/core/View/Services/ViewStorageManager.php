@@ -387,7 +387,7 @@ class ViewStorageManager
         $this->viewStorage[$viewName][$viewId]['styles'] = $styles;
     }
 
-    public function addEventListener(string $viewPath = null, string $viewId = null, string $eventType = null, array $handlers = [])
+    public function addEventListener(?string $viewPath = null, ?string $viewId = null, ?string $eventType = null, array $handlers = [])
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
@@ -406,7 +406,7 @@ class ViewStorageManager
         return " data-{$eventType}-id=\"{$eventID}\"";
     }
 
-    public function addEventQuickHandle(string $viewPath = null, string $viewId = null, string $eventType = null, array $quickHandlers = [])
+    public function addEventQuickHandle(?string $viewPath = null, ?string $viewId = null, ?string $eventType = null, array $quickHandlers = [])
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
@@ -419,7 +419,7 @@ class ViewStorageManager
         return " data-{$eventType}-quick-id=\"{$eventID}\"";
     }
 
-    public function subscribeState(string $viewPath = null, string $viewId = null, bool $subscribe = true)
+    public function subscribeState(?string $viewPath = null, ?string $viewId = null, bool $subscribe = true)
     {
         if ($viewPath) {
             $this->registerView($viewPath, $viewId);
