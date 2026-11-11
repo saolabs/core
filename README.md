@@ -92,6 +92,12 @@ php artisan vendor:publish --tag=saola-migrations
 php artisan migrate
 ```
 
+### Bootstrap dùng chung theo context
+
+Khai báo các context giao diện cần dùng script trong `sao.bootstrap.contexts` và bật `sao.bootstrap.external`. Core đăng ký `GET /saola/{context}/bootstrap.js` với tên `saola.bootstrap.{context}`. Mỗi mục dùng scope trong `sao.i18n.client_scopes` cùng tên context theo mặc định, hoặc scope chỉ định bằng `scope`. Scope công khai có thể đặt `proxy_ttl`. Scope giới hạn quyền dùng guard và ability đã khai báo. Có thể dùng `policy` để tham chiếu thêm cấu hình quyền của panel.
+
+`sao.bootstrap.locale_state` nhận phương thức dạng `Class@method` trả `uiDefault`, `uiFallback` và `locales` hiện hành. Saola Admin cung cấp `Saola\Admin\Language\LocaleManager@state`. System view gọi `ContextBootstrap::forPage()` với request và tên context, rồi dùng `saola-bootstrap::head` và `saola-bootstrap::entry` khi có descriptor. Với trang cần xác thực, chuẩn bị `saola.i18n` sau khi kiểm tra quyền trước khi render.
+
 ---
 
 ## Cấu trúc thư mục

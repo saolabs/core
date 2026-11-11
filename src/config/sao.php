@@ -188,6 +188,14 @@ return [
         'auto_detect' => env('SAO_AUTO_DETECT_LOCALE', true),
     ],
 
+    'bootstrap' => [
+        'external' => false,
+        // Container method (Class@method) returning uiDefault, uiFallback and locales.
+        'locale_state' => null,
+        // Keyed by registered context. Scope defaults to the context name.
+        'contexts' => [],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | API Configuration

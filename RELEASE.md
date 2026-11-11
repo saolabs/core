@@ -1,3 +1,9 @@
+# Saola Core v2.11.0
+
+Applications can opt in to a context bootstrap script with `sao.bootstrap.external` and configure eligible contexts in `sao.bootstrap.contexts`. The script serves SPA routes and published UI catalogs from `/saola/{context}/bootstrap.js`. Shared Blade templates load the script and verify that its revision matches the SSR page before starting the client.
+
+Public scripts support ETag revalidation and optional proxy caching. Protected scripts check the configured guard and abilities before serving content or returning HTTP 304.
+
 # Saola Core v2.10.0
 
 `ModuleServiceProvider` now calls optional per-context hooks `admin(Context)`, `web(Context)`, `api(Context)` and `mobile(Context)` after `define()`, `menus()` and `permissions()`, so a module declares its routes, menu, list and form for each context in one provider. Every hook is optional; modules using `define()` are unchanged.

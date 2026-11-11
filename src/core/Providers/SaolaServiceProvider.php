@@ -2,6 +2,7 @@
 namespace Saola\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Saola\Core\Bootstrap\ContextBootstrapServiceProvider;
 use Saola\Core\Http\Middleware\ApplyTheme;
 use Saola\Core\Services\ThemeService;
 use Saola\Core\View\Finders\ThemeAwareViewFinder;
@@ -84,6 +85,7 @@ class SaolaServiceProvider extends ServiceProvider
         });
 
         $this->app->register(ViewContextServiceProvider::class);
+        $this->app->register(ContextBootstrapServiceProvider::class);
 
         // Đăng ký OctaneServiceProvider nếu Laravel Octane được phát hiện
         // Nếu project có cài Laravel Octane thì tự động đăng ký provider OctaneServiceProvider để hỗ trợ Octane.
