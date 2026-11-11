@@ -28,7 +28,7 @@ class SPA
         self::$isActive = false;
     }
 
-    public static function addRoute($context, $name, $path, $component = null)
+    public static function addRoute($context, $name, $path, $component = null, array $meta = [])
     {
         if (self::$isActive) {
             $params = [];
@@ -54,6 +54,7 @@ class SPA
                 'path' => $path,
                 'params' => $params,
                 'component' => $component,
+                ...($meta === [] ? [] : ['meta' => $meta]),
             ];
         }
     }

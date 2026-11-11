@@ -7,7 +7,11 @@
 
 **Saola Core** — PHP/Laravel backend library của hệ sinh thái [Saola](https://github.com/saolabs), framework full-stack để xây dựng ứng dụng web reactive với Laravel + TypeScript + `.sao` templates.
 
+Nền lang: [Language System](../docs/LANGUAGE_SYSTEM.md). Core có `LanguageSources`, `LanguageTree`, strict `LanguageJson`, `LanguageStore`, scoped `TextResolver` và projection `ClientCatalogs`. PHP `text()` dùng DB adapter, giữ nguyên Laravel `__()`. Source project/package theo `lang/{locale}/*.php`, tên file/package không prefix key. SSR dùng projection được phép; `response()` phát snapshot server chuẩn bị ở request attribute `saola.i18n` vào metadata page-data.
+
 ---
+
+Chế độ nguồn context độc lập/gói và lựa chọn qua `.env` (source local chưa phát hành): [Context sources](docs/CONTEXT_SOURCES.md).
 
 ## Hệ sinh thái Saola
 
@@ -87,6 +91,12 @@ Publish migrations (tùy chọn):
 php artisan vendor:publish --tag=saola-migrations
 php artisan migrate
 ```
+
+### Bootstrap dùng chung theo context
+
+Khai báo các context giao diện cần dùng script trong `sao.bootstrap.contexts` và bật `sao.bootstrap.external`. Core đăng ký `GET /saola/{context}/bootstrap.js` với tên `saola.bootstrap.{context}`. Mỗi mục dùng scope trong `sao.i18n.client_scopes` cùng tên context theo mặc định, hoặc scope chỉ định bằng `scope`. Scope công khai có thể đặt `proxy_ttl`. Scope giới hạn quyền dùng guard và ability đã khai báo. Có thể dùng `policy` để tham chiếu thêm cấu hình quyền của panel.
+
+`sao.bootstrap.locale_state` nhận phương thức dạng `Class@method` trả `uiDefault`, `uiFallback` và `locales` hiện hành. Saola Admin cung cấp `Saola\Admin\Language\LocaleManager@state`. System view gọi `ContextBootstrap::forPage()` với request và tên context, rồi dùng `saola-bootstrap::head` và `saola-bootstrap::entry` khi có descriptor. Với trang cần xác thực, chuẩn bị `saola.i18n` sau khi kiểm tra quyền trước khi render.
 
 ---
 
@@ -269,6 +279,7 @@ class MyService implements OctaneCompatible
 
 ## Tài liệu chi tiết
 
+- **[Permission enum và hướng nâng cấp core 2.0](docs/PERMISSIONS.md)** — khai báo thao tác dùng chung; string permission cũ bị từ chối.
 - **[Kiến trúc hệ thống](docs/ARCHITECTURE.md)**
 - **[Tổng quan cấu trúc](docs/STRUCTURE_OVERVIEW.md)**
 - **[Quick Start Guide](docs/QUICK_START_GUIDE.md)**

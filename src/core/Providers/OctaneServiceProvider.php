@@ -22,6 +22,7 @@ use Saola\Core\Engines\ShortCode;
 class OctaneServiceProvider extends ServiceProvider
 {
     protected $container = [];
+    protected ?array $workerSharedViewData = null;
     
     /**
      * Register any application services.
@@ -54,10 +55,11 @@ class OctaneServiceProvider extends ServiceProvider
         });
 
         // Xử lý khi request kết thúc
-        $this->app['events']->listen(RequestTerminated::class, function () {
+        $this->app['events']->listen(RequestTerminated::class, function (RequestTerminated $event) {
             // Reset các trạng thái tĩnh sau khi xử lý request
             $this->resetStaticState();
             $this->resetServicesState();
+            $this->resetSharedViewData($event);
         });
     }
 
@@ -78,7 +80,31 @@ class OctaneServiceProvider extends ServiceProvider
      */
     protected function prepareOctaneEnvironment(): void
     {
-        // Cấu hình ban đầu cho worker
+        $factory = $this->app->make('view');
+        if ($factory instanceof \Illuminate\View\Factory) {
+            // Preserve provider/worker boot shares, not request-specific data.
+            $this->workerSharedViewData = $factory->getShared();
+        }
+    }
+
+    protected function resetSharedViewData(RequestTerminated $event): void
+    {
+        if ($this->workerSharedViewData === null) {
+            return;
+        }
+
+        // Laravel has no public API to remove shared keys. Octane reuses the
+        // factory across sandboxes, so restore its boot snapshot after response.
+        $shared = new \ReflectionProperty(\Illuminate\View\Factory::class, 'shared');
+        foreach ([$event->app, $event->sandbox] as $app) {
+            if (!$app->resolved('view')) {
+                continue;
+            }
+            $factory = $app->make('view');
+            if ($factory instanceof \Illuminate\View\Factory) {
+                $shared->setValue($factory, $this->workerSharedViewData);
+            }
+        }
     }
 
     /**

@@ -2,7 +2,7 @@
 
 Repository: https://github.com/saolabs/core
 Package: `saola/core` (`type: library`).
-Hướng dẫn cập nhật ngày 2026-10-02.
+Hướng dẫn cập nhật ngày 2026-10-18.
 
 ## Kiểm tra trước khi phát hành
 
@@ -12,7 +12,7 @@ composer install
 composer check
 ```
 
-PHP phải đáp ứng cả manifest lẫn dependency đã khóa. Máy kiểm chứng hiện dùng PHP 8.5.1. Repo chưa có tag; chọn version đầu tiên sau khi duyệt release.
+PHP phải đáp ứng cả manifest lẫn dependency đã khóa. Máy kiểm chứng hiện dùng PHP 8.5.1. Kiểm tra tag remote trước khi chọn version tiếp theo; version của package được lấy từ tag Git.
 
 ## Submit lần đầu
 

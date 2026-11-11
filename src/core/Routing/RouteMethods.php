@@ -218,7 +218,9 @@ trait RouteMethods
         }
         // Thêm giá trị mặc định cho tham số
         if (isset($this->data['defaults'])) {
-            $laravelRoute = $laravelRoute->defaults($this->data['defaults']);
+            foreach ($this->data['defaults'] as $key => $value) {
+                $laravelRoute = $laravelRoute->defaults($key, $value);
+            }
         }
         // Loại bỏ middleware nếu có
         if (isset($this->data['withoutMiddleware'])) {
@@ -243,7 +245,7 @@ trait RouteMethods
                 $routeUri = $laravelRoute->uri();
                 $routeName = $laravelRoute->getName();
                 if ($routeName) {
-                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath($routeName));
+                    SPA::addRoute($context, $routeName, $routeUri, $this->getComponentPath($routeName), $this->clientRouteMeta());
                 }
             } catch (\Throwable $e) {
                 // Bỏ qua lỗi nếu không thể lấy URI (ví dụ: khi chạy artisan commands)
@@ -254,7 +256,7 @@ trait RouteMethods
             $routeName = $this->getFullRouteName();
             if ($routeName && $this->data['uri']) {
                 // Sử dụng URI từ data thay vì từ Laravel route object
-                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath($routeName));
+                SPA::addRoute($context, $routeName, $this->data['uri'], $this->getComponentPath($routeName), $this->clientRouteMeta());
             }
         }
 
@@ -501,12 +503,13 @@ trait RouteMethods
     {
         $t = count($arguments);
         // check if the method is a http method
-        if (in_array($name, $this->routeMethods)) {
+        if ($this->isHttpMethod($name)) {
             if ($name == 'match') {
                 if ($t < 2 || !is_array($arguments[0])) {
                     throw new \Exception('Match must be an array');
                 }
                 $this->data['match'] = array_shift($arguments);
+                $this->data['is_match'] = true;
                 $t--;
             } else {
                 $this->data['method'] = $name;
@@ -560,8 +563,11 @@ trait RouteMethods
             $this->data[$name] = $arguments[0];
         }
 
-        // check if middleware or permission
-        else if (in_array($name, ['middleware', 'permission'])) {
+        else if ($name === 'permission') {
+            $this->data[$name] = Permission::values($t === 1 ? $arguments[0] : $arguments);
+        }
+        // Middleware remains a Laravel string/array declaration.
+        else if ($name === 'middleware') {
             if (!is_string($arguments[0]) && !is_array($arguments[0])) {
                 throw new \Exception($name . ' must be a string or array');
             }
@@ -698,7 +704,13 @@ trait RouteMethods
      */
     public function any($uri, $action)
     {
-        return $this->setRouteDataValue('any', $uri, $action);
+        // A container gets a child route, like get()/post() do through the addChild alias.
+        if ($this->isModule() || $this->isContext() || $this->isChannel()) {
+            return $this->addChildRouter(['type' => 'router'])->any($uri, $action);
+        }
+        $this->setRouteDataValue('any', $uri, $action);
+
+        return $this;
     }
     /**
      * Đặt điều kiện regex cho tham số route

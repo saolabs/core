@@ -35,33 +35,28 @@ class Service
      */
     public function __call($method, $params)
     {
-
-        if (count($params)) {
-            if (in_array($method, static::$eventMethods)) {
-                static::callEventMethod($method, $params);
-            } elseif ($this->_funcExists($method)) {
-                $this->_nonStaticCall($method, $params);
-            } elseif (substr($method, 0, 2) == 'on' && strlen($event = substr($method, 2)) > 0 && ctype_upper(substr($event, 0, 1)) && count($params) && (is_callable($params[0]) || is_callable([$this, $params[0]]))) {
-                $this->_addEventListener($event, $params[0]);
-            } elseif (substr($method, 0, 4) == 'emit') {
-                if (strlen($event = substr($method, 4)) > 0 && ctype_upper(substr($event, 0, 1))) {
-                    return static::_dispatchEvent($event, ...$params);
-                } else {
-                    return static::_dispatchEvent(array_shift($params), ...$params);
-                }
-            }
-            // elseif(($result = $this->callMacro($method, $params, static::MACRO_TYPE_NAME)) !== static::NO_MACRO_EXIST) {
-            //     return $result;
-            // }
-        } elseif ($this->_funcExists($method)) {
+        if (in_array($method, static::$eventMethods)) {
+            static::callEventMethod($method, $params);
+            return $this;
+        }
+        if ($this->_funcExists($method)) {
             $this->_nonStaticCall($method, $params);
-        } elseif (substr($method, 0, 4) == 'emit' && strlen($event = substr($method, 4)) > 0 && (ctype_upper(substr($event, 0, 1)))) {
-            return static::_dispatchEvent($event, ...$params);
-        } 
-        // elseif(($result = $this->callMacro($method, $params, static::MACRO_TYPE_NAME)) !== static::NO_MACRO_EXIST) {
-        //     return $result;
-        // }
-        return $this;
+            return $this;
+        }
+        if (count($params) && substr($method, 0, 2) == 'on' && strlen($event = substr($method, 2)) > 0 && ctype_upper(substr($event, 0, 1)) && (is_callable($params[0]) || is_callable([$this, $params[0]]))) {
+            $this->_addEventListener($event, $params[0]);
+            return $this;
+        }
+        if (substr($method, 0, 4) == 'emit') {
+            if (strlen($event = substr($method, 4)) > 0 && ctype_upper(substr($event, 0, 1))) {
+                return static::_dispatchEvent($event, ...$params);
+            }
+            if (count($params)) {
+                return static::_dispatchEvent(array_shift($params), ...$params);
+            }
+        }
+        // A misspelt method used to return $this silently and carry on; fail like any PHP object instead.
+        throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', static::class, $method));
     }
     /**
      * Handle calls to missing methods on the controller.

@@ -27,7 +27,8 @@ use ReflectionClass;
  * @method void onBeforeLoadRelations() thuc hirm hanh dong truoc khi load relation
  * 
  */
-abstract class EmptyMask implements Countable, ArrayAccess, IteratorAggregate, JsonSerializable, Jsonable, Arrayable
+/** The "nothing found" value of a single-record read: usable directly (and resolvable from the container). */
+class EmptyMask implements Countable, ArrayAccess, IteratorAggregate, JsonSerializable, Jsonable, Arrayable
 {
     private $isLock = false;
     protected $model = null;

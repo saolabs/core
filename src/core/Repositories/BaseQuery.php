@@ -522,7 +522,7 @@ trait BaseQuery
 
     public function getFields()
     {
-        return array_merge([$this->_primaryKeyName], $this->_model->__get_fields());
+        return array_merge([$this->_primaryKeyName], $this->_model->__get_columns());
     }
 
 
@@ -551,6 +551,18 @@ trait BaseQuery
      *
      */
     final public function query($args = [])
+    {
+        // Chained where()/lockForUpdate()/params belong to this one query: never let them leak into the next,
+        // even if building it throws (repositories may be singletons in long-lived workers).
+        try {
+            return $this->buildQuery($args);
+        } finally {
+            $this->resetActionParams();
+            $this->resetMLC();
+        }
+    }
+
+    private function buildQuery($args = [])
     {
         $this->fire('beforequery', $args);
         $keywords = null;
@@ -656,7 +668,12 @@ trait BaseQuery
                         case 'deleted':
 
                             if ($this->_model->isSoftDeleteMode() && $softDeleteColumn = $this->_model->getDeletedAtColumn()) {
-                                if ($vl) {
+                                // This directive decides visibility itself; Eloquent's soft-delete scope would add
+                                // "deleted_at IS NULL" again and turn '@trashed' => true into an always-empty result.
+                                $query->withoutGlobalScope(\Illuminate\Database\Eloquent\SoftDeletingScope::class);
+                                if ($vl === 'all') {
+                                    // '@trashed' => 'all': deleted and live rows together (withTrashed)
+                                } elseif ($vl) {
                                     if (is_numeric($vl) && $vl > 0) {
                                         $date = date('Y-m-d', time() - 3600 * 24 * $vl);
                                         $query->where(function ($q) use ($date, $prefix, $softDeleteColumn) {
@@ -670,7 +687,7 @@ trait BaseQuery
                                     $query->whereNull($prefix . $softDeleteColumn);
                                 }
                             }
-                            if (in_array('trashed_status', $fields)) {
+                            if ($vl !== 'all' && in_array('trashed_status', $fields)) {
                                 if ($vl) {
                                     $query->where($prefix . 'trashed_status', 1);
                                 } else {
@@ -796,7 +813,14 @@ trait BaseQuery
             // nếu không có prefix và ko có trong fillable thì bỏ qua
             if (isset($this->whereable) && array_key_exists($ifield, $this->whereable)) {
                 $f = $this->whereable[$ifield];
-            } elseif (!in_array($ifield, $fields) && $ifield != $this->_primaryKeyName) return;
+            } elseif (!in_array($ifield, $fields) && $ifield != $this->_primaryKeyName) {
+                // A condition written in code on a column the table does not have is a bug: silently dropping it
+                // would widen the result (e.g. lose a tenant filter). Only when the schema is unknown is it skipped.
+                if ($this->_model->__schema_columns() !== null) {
+                    throw new \InvalidArgumentException("Unknown column '{$ifield}' in a query on {$this->getTable()}.");
+                }
+                return;
+            }
             else $f = $prefix . $ifield;
         } else $f = $ifield;
 

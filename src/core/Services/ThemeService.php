@@ -56,10 +56,41 @@ class ThemeService
         return trim((string) config('sao.themes.directory', 'themes'), '.');
     }
 
-    /** Slug → base Blade, vd `storefront` → `themes.storefront`. */
-    public function base(string $slug): string
+    /**
+     * Slug → base Blade `{context}.{slug}`, vd (`storefront`, `web`) → `web.storefront`.
+     *
+     * Nếu theme mới chỉ có bản cài ở đường cũ `themes/{slug}` thì trả `themes.{slug}`:
+     * Blade đã compile tham chiếu tên view theo vị trí vật lý của nó, nên base phải
+     * theo vị trí thật đến khi `saola:theme:install` + builder chuyển sang đường mới.
+     * ponytail: dò đĩa mỗi lần gọi (cùng giá với exists()); bỏ nhánh legacy ở bản sau.
+     */
+    public function base(string $slug, string $context = 'web'): string
     {
-        return $this->directory() . '.' . $slug;
+        $slug = $this->normalizeSlug($slug, $context);
+        $new = $context . '.' . $slug;
+
+        if ($this->viewDirExists($new)) {
+            return $new;
+        }
+
+        $legacy = $this->directory() . '.' . $slug;
+
+        return $this->viewDirExists($legacy) ? $legacy : $new;
+    }
+
+    /**
+     * Bỏ tiền tố namespace khỏi slug lưu trong cache/DB: `themes.aurora` hay
+     * `web.aurora` đều chuẩn hoá về `aurora`. Ghi ra luôn là dạng trần.
+     */
+    public function normalizeSlug(string $slug, string $context = 'web'): string
+    {
+        foreach ([$this->directory() . '.', $context . '.'] as $prefix) {
+            if (str_starts_with($slug, $prefix)) {
+                return substr($slug, strlen($prefix));
+            }
+        }
+
+        return $slug;
     }
 
     /** Slug của theme đang active, null nếu dùng base gốc của context. */
@@ -71,7 +102,7 @@ class ThemeService
             $selection = Cache::get($key);
             $slug = is_array($selection) ? ($selection['slug'] ?? null) : $selection;
 
-            return is_string($slug) && $slug !== '' ? $slug : null;
+            return is_string($slug) && $slug !== '' ? $this->normalizeSlug($slug, $context) : null;
         }
 
         $resolver = $this->resolvers[$context] ?? null;
@@ -82,9 +113,10 @@ class ThemeService
         $slug = $resolver($context);
         // Ghi cả khi rỗng: nếu không, mỗi request lại một truy vấn DB chỉ để
         // biết "chưa đặt theme nào".
-        Cache::forever($key, is_string($slug) ? $slug : '');
+        $slug = is_string($slug) ? $this->normalizeSlug($slug, $context) : '';
+        Cache::forever($key, $slug);
 
-        return is_string($slug) && $slug !== '' ? $slug : null;
+        return $slug !== '' ? $slug : null;
     }
 
     /**
@@ -93,12 +125,21 @@ class ThemeService
      * Kiểm ở đây là kiểm thư mục, không kiểm tên file: theme không bắt buộc
      * phải có view nào cụ thể.
      */
-    public function exists(string $slug): bool
+    public function exists(string $slug, string $context = 'web'): bool
     {
+        $slug = $this->normalizeSlug($slug, $context);
         if (!$this->isValidSlug($slug)) {
             return false;
         }
-        $relative = str_replace('.', DIRECTORY_SEPARATOR, $this->base($slug));
+
+        return $this->viewDirExists($context . '.' . $slug)
+            || $this->viewDirExists($this->directory() . '.' . $slug);
+    }
+
+    /** Namespace Blade → có thư mục trong đường tìm view không. */
+    protected function viewDirExists(string $base): bool
+    {
+        $relative = str_replace('.', DIRECTORY_SEPARATOR, $base);
 
         foreach (View::getFinder()->getPaths() as $path) {
             if (is_dir(rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $relative)) {
@@ -109,11 +150,31 @@ class ThemeService
         return false;
     }
 
-    /** Thư mục Blade ĐÃ CÀI của theme — nằm trong đường tìm view của Laravel. */
-    public function installedViewsPath(string $slug): string
+    /**
+     * Thư mục Blade ĐÃ CÀI của theme — nằm trong đường tìm view của Laravel:
+     * `resources/views/{context}/{slug}`, khớp namespace `{context}.{slug}`.
+     */
+    public function installedViewsPath(string $slug, string $context = 'web'): string
+    {
+        return resource_path('views' . DIRECTORY_SEPARATOR . $context . DIRECTORY_SEPARATOR . $slug);
+    }
+
+    /** Đường cũ `resources/views/themes/{slug}` — chỉ để nhận diện bản cài trước P2. */
+    public function legacyInstalledViewsPath(string $slug): string
     {
         return resource_path('views' . DIRECTORY_SEPARATOR
-            . str_replace('.', DIRECTORY_SEPARATOR, $this->base($slug)));
+            . str_replace('.', DIRECTORY_SEPARATOR, $this->directory() . '.' . $slug));
+    }
+
+    /**
+     * Thư mục public của theme: `static/saola/themes/{context}/{slug}`.
+     *
+     * NGOÀI `static/saola/{context}/`: Vite `emptyOutDir` xoá sạch thư mục đó mỗi
+     * lần build và sẽ cuốn symlink của theme đã cài đi theo (EXTENSION §10.1).
+     */
+    public function publicBase(string $slug, string $context = 'web'): string
+    {
+        return "static/saola/themes/{$context}/{$slug}";
     }
 
     /** Thư mục Blade trong GÓI phát hành (nguồn để cài). */
@@ -123,17 +184,25 @@ class ThemeService
             . DIRECTORY_SEPARATOR . 'views';
     }
 
-    /** @return list<string> Slug của mọi theme đã compile. */
-    public function available(): array
+    /** @return list<string> Slug của mọi theme đã compile cho context. */
+    public function available(string $context = 'web'): array
     {
         $themes = [];
 
-
         foreach (View::getFinder()->getPaths() as $path) {
-            $dir = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $this->directory();
-            foreach (glob($dir . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [] as $themeDir) {
+            $root = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            // Đường cũ: mọi thư mục con của `themes/` là theme.
+            foreach (glob($root . $this->directory() . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [] as $themeDir) {
                 $slug = basename($themeDir);
                 if ($this->isValidSlug($slug)) {
+                    $themes[$slug] = true;
+                }
+            }
+            // Đường mới: `{context}/` còn chứa thư mục base (layouts, modules…), nên
+            // chỉ nhận thư mục có manifest gói khai đúng context này.
+            foreach (glob($root . $context . DIRECTORY_SEPARATOR . '*', GLOB_ONLYDIR) ?: [] as $themeDir) {
+                $slug = basename($themeDir);
+                if ($this->isValidSlug($slug) && ($this->manifest($slug)['context'] ?? null) === $context) {
                     $themes[$slug] = true;
                 }
             }
@@ -154,8 +223,9 @@ class ThemeService
      */
     public function activate(string $slug, string $context = 'web'): self
     {
-        if (!$this->exists($slug)) {
-            throw new \InvalidArgumentException("Theme [{$slug}] chưa được compile hoặc không tồn tại.");
+        $slug = $this->normalizeSlug($slug, $context);
+        if (!$this->exists($slug, $context)) {
+            throw new \InvalidArgumentException("Theme [{$slug}] chưa được compile hoặc không tồn tại cho context [{$context}].");
         }
 
         // InstallThemeCommand đã kiểm trước khi copy, nhưng activate() còn được
@@ -209,6 +279,8 @@ class ThemeService
             return false;
         }
 
+        if (app(ContextSource::class)->apply($context)) return true;
+
         $slug = $this->active($context);
         if ($slug === null) {
             $manager->clearContextViews($context);
@@ -218,7 +290,7 @@ class ThemeService
 
         // Theme biến mất sau khi đã active (bị xoá, deploy hụt) thì rơi về base
         // gốc thay vì để mọi view 500.
-        if (!$this->exists($slug)) {
+        if (!$this->exists($slug, $context)) {
             $manager->clearContextViews($context);
 
             return false;
@@ -239,7 +311,7 @@ class ThemeService
             return false;
         }
 
-        $manager->setContextViews($context, $this->base($slug));
+        $manager->setContextViews($context, $this->base($slug, $context));
 
         return true;
     }
@@ -289,9 +361,14 @@ class ThemeService
         $manifest = $this->manifest($slug);
         $revision = (string) ($manifest['revision'] ?? '');
         $query = $revision !== '' ? '?v=' . $revision : '';
-        $base = "static/saola/themes/{$slug}";
-
-        $public = public_path("static/saola/themes/{$slug}");
+        $base = $this->publicBase($slug, $context);
+        $public = public_path($base);
+        // Bản cài trước P2 còn symlink ở đường cũ `static/saola/themes/{slug}`.
+        // ponytail: bỏ nhánh này sau khi mọi môi trường đã cài lại theme.
+        if (!is_file($public . '/main.js') && is_file(public_path("static/saola/themes/{$slug}/main.js"))) {
+            $base = "static/saola/themes/{$slug}";
+            $public = public_path($base);
+        }
         $js = is_file($public . '/main.js') ? asset("{$base}/main.js") . $query : null;
         $css = is_file($public . '/main.css') ? asset("{$base}/main.css") . $query : null;
 
@@ -385,7 +462,8 @@ class ThemeService
         $buildInfo = app(BundleManifest::class)->buildInfo();
         $selection = Cache::get(self::CACHE_PREFIX . $context);
 
-        if (is_array($selection) && ($selection['slug'] ?? null) === $slug) {
+        if (is_array($selection) && is_string($selection['slug'] ?? null)
+            && $this->normalizeSlug($selection['slug'], $context) === $slug) {
             $appContract = $buildInfo['contract'] ?? null;
             $appIdMode = $buildInfo['idMode'] ?? null;
             $themeContract = $selection['contract'] ?? null;
@@ -453,8 +531,10 @@ class ThemeService
         return null;
     }
 
-    protected function isValidSlug(string $slug): bool
+    public function isValidSlug(string $slug): bool
     {
-        return $slug !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $slug) === 1;
+        // Slug trùng tên context sẽ làm `{context}.{slug}` mơ hồ với base của chính context.
+        return $slug !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $slug) === 1
+            && !app(ViewContextManager::class)->hasContext($slug);
     }
 }

@@ -11,12 +11,17 @@ use Saola\Core\Engines\ViewContextManager;
  *
  * Không có lớp này thì theme phải là bản sao ĐẦY ĐỦ của context: `__layout__`,
  * `__partial__`, `__module__`… là biến của cả context, nên `@extends`/`@include`
- * trong bất kỳ view nào cũng trỏ vào `themes.{slug}.*`. Thiếu một file — kể cả
+ * trong bất kỳ view nào cũng trỏ vào `{context}.{slug}.*` (đường cài cũ: `themes.{slug}.*`). Thiếu một file — kể cả
  * `partials/head` mà theme chẳng có lý do gì để đổi — là cả trang 500.
  *
  * Đặt ở tầng finder vì đó là cửa DUY NHẤT mọi đường đi qua: `@extends`,
  * `@include`, `view()`, và cả `view()->exists()` mà routeToViewPathConfig dùng
  * để dò. Vá ở từng chỗ gọi thì chắc chắn sót.
+ *
+ * Finder KHÔNG biết tiền tố nào: cặp (base theme → base gốc) do
+ * `ViewContextManager::fallbackViewName()` suy từ base đang active của từng context,
+ * nên `web.aurora.x → web.x` và `themes.aurora.x → web.x` đi chung một đường và
+ * cùng slug ở hai context (`web.aurora`, `admin.aurora`) không va chạm.
  */
 class ThemeAwareViewFinder extends FileViewFinder
 {

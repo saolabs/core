@@ -1,6 +1,25 @@
 <?php
 
 return [
+    // Opt in to avoid conflicting with authentication routes owned by an existing host.
+    'auth_api' => [
+        'enabled' => false,
+        'prefix' => 'auth',
+        'guard' => null,
+        'password' => true,
+        'username' => 'email',
+        'redirect' => '/',
+        'social_user_resolver' => null, // application class implementing SocialUserResolver
+        'providers' => [
+            'google' => ['enabled' => false, 'label' => 'Google'],
+            'github' => ['enabled' => false, 'label' => 'GitHub'],
+        ],
+    ],
+    // Default guard is always included. Only explicitly selected user fields enter HTML/JSON.
+    'client_auth' => [
+        'guards' => [],
+        'user_fields' => ['name', 'username'],
+    ],
     /*
     |--------------------------------------------------------------------------
     | Saola Core Configuration
@@ -40,8 +59,9 @@ return [
     | Themes
     |--------------------------------------------------------------------------
     |
-    | `directory` là namespace Blade chứa theme đã compile: theme `storefront`
-    | nằm ở `themes.storefront.*`. Khớp với khoá namespace trong sao.config.json.
+    | Theme `storefront` của context `web` có namespace `web.storefront.*`, khớp
+    | khoá namespace trong sao.config.json của gói. `directory` chỉ còn nhận diện
+    | bản cài cũ ở `themes.storefront.*` (tương thích một bản phát hành).
     |
     */
     'themes' => [
@@ -157,10 +177,23 @@ return [
     |
     */
     'i18n' => [
+        // Explicit Saola seed files under lang/{locale}; no file-name prefix in keys.
+        // Laravel auth/validation files are not imported implicitly.
+        'source_files' => ['saola'],
+        // Empty by default: hosts explicitly choose public/private client keys.
+        'client_scopes' => [],
         'default_locale' => env('SAO_DEFAULT_LOCALE', 'vi'),
         'fallback_locale' => env('SAO_FALLBACK_LOCALE', 'en'),
         'available_locales' => explode(',', env('SAO_AVAILABLE_LOCALES', 'vi,en')),
         'auto_detect' => env('SAO_AUTO_DETECT_LOCALE', true),
+    ],
+
+    'bootstrap' => [
+        'external' => false,
+        // Container method (Class@method) returning uiDefault, uiFallback and locales.
+        'locale_state' => null,
+        // Keyed by registered context. Scope defaults to the context name.
+        'contexts' => [],
     ],
 
     /*
@@ -195,4 +228,4 @@ return [
         'log_queries' => env('SAO_LOG_QUERIES', false),
         'profiler' => env('SAO_PROFILER', false),
     ],
-]; 
+];

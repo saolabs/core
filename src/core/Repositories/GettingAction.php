@@ -49,6 +49,18 @@ trait GettingAction
         return $result;
     }
 
+    /** find(), or a ModelNotFoundException (404 over HTTP). */
+    final public function findOrFail($id)
+    {
+        return $this->_model->findOrFail($id);
+    }
+
+    /** first($args), or a ModelNotFoundException (404 over HTTP): e.g. firstOrFail(['workspace_id' => $ws, 'id' => $id]). */
+    final public function firstOrFail($args = [])
+    {
+        return $this->first($args) ?? throw (new \Illuminate\Database\Eloquent\ModelNotFoundException())->setModel(get_class($this->_model));
+    }
+
 
     /**
      * lay ra 1 ban ghi theo tieu chi

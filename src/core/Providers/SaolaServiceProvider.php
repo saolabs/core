@@ -2,6 +2,7 @@
 namespace Saola\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Saola\Core\Bootstrap\ContextBootstrapServiceProvider;
 use Saola\Core\Http\Middleware\ApplyTheme;
 use Saola\Core\Services\ThemeService;
 use Saola\Core\View\Finders\ThemeAwareViewFinder;
@@ -24,6 +25,11 @@ class SaolaServiceProvider extends ServiceProvider
         }
 
         $this->registerConfigAliases();
+        $this->mergeConfigFrom(__DIR__.'/../../config/contexts.php', 'saola-contexts');
+        $this->app->register(LanguageServiceProvider::class);
+        // A plain context must render compiled .sao views with core alone.
+        // Laravel deduplicates this if an existing host registers it explicitly.
+        $this->app->register(BladeDirectiveServiceProvider::class);
 
         // Registry chứa cấu hình ổn định của worker; manager chứa lựa chọn view
         // theo request nên phải là scoped để an toàn với Octane.
@@ -50,6 +56,15 @@ class SaolaServiceProvider extends ServiceProvider
         // singleton là đúng — xem ghi chú đầu ThemeService.
         $this->app->singleton(ThemeService::class);
 
+        // Callback Saola::share đăng ký lúc boot phải sống qua mọi request.
+        $this->app->singleton(\Saola\Core\Services\ClientShare::class);
+        $this->app->scoped(\Saola\Core\Services\ClientAuth::class);
+        $this->app->make(\Saola\Core\Services\ClientShare::class)->share('auth',
+            fn ($request) => app(\Saola\Core\Services\ClientAuth::class)->export($request));
+        $this->app->register(AuthServiceProvider::class);
+        // installed.json chỉ đổi khi composer chạy: đọc một lần mỗi worker.
+        $this->app->singleton(\Saola\Core\Services\PackageAssets::class);
+
         // Thay finder mặc định bằng bản biết rơi từ theme về base gốc. Phải
         // `extend` chứ không `singleton` mới, để giữ nguyên hints/extensions mà
         // Laravel và các package khác đã nạp vào finder gốc.
@@ -70,6 +85,7 @@ class SaolaServiceProvider extends ServiceProvider
         });
 
         $this->app->register(ViewContextServiceProvider::class);
+        $this->app->register(ContextBootstrapServiceProvider::class);
 
         // Đăng ký OctaneServiceProvider nếu Laravel Octane được phát hiện
         // Nếu project có cài Laravel Octane thì tự động đăng ký provider OctaneServiceProvider để hỗ trợ Octane.
@@ -133,6 +149,7 @@ class SaolaServiceProvider extends ServiceProvider
             \Saola\Core\Console\Commands\MakeModuleCommand::class,
             \Saola\Core\Console\Commands\InstallThemeCommand::class,
             \Saola\Core\Console\Commands\PublishSaolaMigrationsCommand::class,
+            \Saola\Core\Console\Commands\PublishPackageAssetsCommand::class,
         ]);
 
         // Publish config file

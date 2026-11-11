@@ -34,7 +34,8 @@ trait OwnerAction
 
     public function ownerInit()
     {
-        if (in_array('owner_id', $this->getFields())) {
+        // Declared fields only: constructing a repository must not query the schema.
+        if (in_array('owner_id', array_merge([$this->_primaryKeyName], $this->_model->__get_fields()))) {
             $owner = self::$_owner_id;
             if ($owner || $this->system == 'both') {
                 $this->addDefaultValue('owner_id', $owner);

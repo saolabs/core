@@ -132,6 +132,7 @@ trait ResponseMethods
     {
         // Nếu có bladePath, render view và thêm vào response
         $responseData = ['data' => $data];
+        $responseData['auth'] = app(\Saola\Core\Services\ClientAuth::class)->export(request());
 
         if ($bladePath) {
             try {
@@ -193,6 +194,10 @@ trait ResponseMethods
         }
 
         // Merge headers mặc định
+        // Only an explicitly prepared, server-side projection may enter page-data.
+        if (request()->attributes->has('saola.i18n')) {
+            $responseData['i18n'] = \Saola\Core\Language\ClientCatalogs::withoutHeld(request()->attributes->get('saola.i18n'), request()->header('X-Saola-Language'));
+        }
         $defaultHeaders = [
             'Content-Type' => 'application/json; charset=utf-8',
         ];

@@ -184,6 +184,12 @@ class BladeDirectiveServiceProvider extends ServiceProvider
             return "";
         });
 
+        // @cache(false) / @cache({ ttl: 60000 }) — cấu hình PageCache phía client,
+        // compiler đã ghi vào config view; phía server không in gì.
+        Blade::directive('cache', function ($expression) {
+            return "";
+        });
+
         // @addCssLink('/x.css', ['id' => 'x'])  — ĐĂNG KÝ stylesheet, không in
         // tại chỗ. In ra ở <head> (_system.page.begin) hoặc cuối <body>
         // (_system.partials.scripts) tuỳ lúc view đăng ký. Trùng href, hoặc

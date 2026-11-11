@@ -148,5 +148,5 @@ Module = Route Group + Service + Repository
 Saola\Core\Routing\Module        — Định nghĩa module
 Saola\Core\Routing\Router        — Đăng ký routes cho module
 Saola\Core\Routing\Action        — Action handler trong module
-Saola\Core\Routing\ModuleService — Service layer cho module
+Saola\Core\Services\ModuleService — Service layer cho module
 ```

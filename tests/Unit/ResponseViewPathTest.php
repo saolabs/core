@@ -144,6 +144,17 @@ class ResponseViewPathTest extends TestCase
         $this->controller()->response([], null, ['forceView' => true]);
     }
 
+    public function test_page_data_only_emits_explicit_server_language_projection(): void
+    {
+        $request = \Illuminate\Http\Request::create('/x?i18n=client-input', 'GET');
+        $request->headers->set('X-Sao-Response', 'json');
+        app()->instance('request', $request);
+        $this->assertArrayNotHasKey('i18n', $this->controller()->response([], '@MODULE:index')->getData(true));
+        $snapshot = ['scope' => 'web:abc', 'locale' => 'vi', 'catalogs' => ['vi' => ['revision' => 1, 'messages' => ['save' => 'Lưu']]]];
+        $request->attributes->set('saola.i18n', $snapshot);
+        $this->assertSame($snapshot, $this->controller()->response([], '@MODULE:index')->getData(true)['i18n']);
+    }
+
     public function test_khoa_json_gui_client_bam_theo_view_theme_that_su_co(): void
     {
         $manager = app(ViewContextManager::class);

@@ -12,12 +12,15 @@ use Saola\Core\Services\ThemeService;
  * Gói nằm ở `themes/{slug}/` với `dist/` là toàn bộ đầu ra build. Cài = đưa hai
  * nửa của nó về đúng địa hạt:
  *
- *   dist/views/**     →  resources/views/themes/{slug}/   (copy)
- *   dist/public/*     →  public/static/saola/themes/{slug}/ (symlink)
+ *   dist/views/**     →  resources/views/{context}/{slug}/        (copy)
+ *   dist/public/*     →  public/static/saola/themes/{context}/{slug}/ (symlink)
  *
- * Blade phải COPY vào cây view của Laravel chứ không phục vụ tại chỗ: tên view
- * `themes.{slug}.*` được finder resolve theo đường tìm mặc định, nên đặt đúng
- * chỗ là không phải dạy finder thêm gì cả.
+ * `{context}` lấy từ `theme.json`. Blade phải COPY vào cây view của Laravel chứ
+ * không phục vụ tại chỗ: tên view `{context}.{slug}.*` được finder resolve theo
+ * đường tìm mặc định, nên đặt đúng chỗ là không phải dạy finder thêm gì cả.
+ *
+ * Thư mục Blade đã cài mang file `.saola-theme` — builder dùng nó để KHÔNG quét
+ * Blade mồ côi vào trong theme (cây `resources/views/{context}/` là cây sinh ra).
  *
  * `dist/public` thì SYMLINK chứ không copy: nó là thứ trình duyệt tải, và
  * symlink cho phép `?v={revision}` đổi theo bản build của theme mà không phải
@@ -29,6 +32,9 @@ use Saola\Core\Services\ThemeService;
  */
 class InstallThemeCommand extends Command
 {
+    /** Dấu thư mục Blade theme đã cài — builder không quét mồ côi vào trong. */
+    public const MARKER = '.saola-theme';
+
     protected $signature = 'saola:theme:install {slug : Slug của gói theme trong thư mục themes/}
                             {--force : Ghi đè Blade đã cài}
                             {--activate= : Kích hoạt luôn cho context này sau khi cài}';
@@ -55,11 +61,40 @@ class InstallThemeCommand extends Command
             return self::FAILURE;
         }
 
+        $manifest = $themes->manifest($slug);
+        $context = (string) ($manifest['context'] ?? '');
+        if ($context === '' || !$themes->isValidSlug($slug)) {
+            $this->error("Theme [{$slug}] thiếu context trong theme.json hoặc slug không hợp lệ.");
+
+            return self::FAILURE;
+        }
+        // Blade của gói tham chiếu view theo namespace lúc build. Gói build trước
+        // P2 mang `themes.{slug}.*` — cài vào `{context}/{slug}` sẽ trỏ vào hư không.
+        $expected = $context . '.' . $slug;
+        if (($manifest['namespace'] ?? null) !== $expected) {
+            $this->error("Gói theme [{$slug}] chưa build theo namespace [{$expected}] — build lại gói rồi cài.");
+
+            return self::FAILURE;
+        }
+        if ($context === $slug) {
+            $this->error("Slug [{$slug}] trùng tên context.");
+
+            return self::FAILURE;
+        }
+
         $source = $themes->packageViewsPath($slug);
-        $target = $themes->installedViewsPath($slug);
+        $target = $themes->installedViewsPath($slug, $context);
 
         if (!is_dir($source)) {
             $this->error("Gói thiếu thư mục Blade đã build: {$source}");
+
+            return self::FAILURE;
+        }
+        // `resources/views/{context}/` còn chứa cây sinh ra (layouts, modules...).
+        // Thư mục tên trùng slug mà không phải theme đã cài là va chạm — --force
+        // cũng không được đè lên nó.
+        if (is_dir($target) && !is_file($target . DIRECTORY_SEPARATOR . self::MARKER)) {
+            $this->error("{$target} đã tồn tại và không phải theme đã cài; đổi slug.");
 
             return self::FAILURE;
         }
@@ -70,9 +105,10 @@ class InstallThemeCommand extends Command
         }
 
         $copied = $this->copyTree($source, $target);
+        @file_put_contents($target . DIRECTORY_SEPARATOR . self::MARKER, $expected . "\n");
         $this->info("✓ Blade: {$copied} file → {$target}");
 
-        $linked = $this->linkPublic($themes, $slug);
+        $linked = $this->linkPublic($themes, $slug, $context);
         $this->info($linked ? "✓ Asset: đã link → {$linked}" : '⚠ Gói không có dist/public, bỏ qua asset');
 
         $manifest = $themes->manifest($slug);
@@ -119,7 +155,7 @@ class InstallThemeCommand extends Command
     }
 
     /** @return string|null đường đích nếu link được */
-    protected function linkPublic(ThemeService $themes, string $slug): ?string
+    protected function linkPublic(ThemeService $themes, string $slug, string $context): ?string
     {
         $source = $themes->packagePath($slug) . DIRECTORY_SEPARATOR . 'dist'
             . DIRECTORY_SEPARATOR . 'public';
@@ -127,7 +163,8 @@ class InstallThemeCommand extends Command
             return null;
         }
 
-        $root = (string) config('sao.themes.public_path', public_path('static/saola/themes'));
+        $root = rtrim((string) config('sao.themes.public_path', public_path('static/saola/themes')), DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR . $context;
         if (!is_dir($root) && !@mkdir($root, 0775, true) && !is_dir($root)) {
             throw new \RuntimeException("Không tạo được thư mục: {$root}");
         }

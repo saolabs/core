@@ -430,7 +430,7 @@ trait EloquentQuery{
 
     public function getFields()
     {
-        return array_merge([$this->_primaryKeyName], $this->_model->__get_fields());
+        return array_merge([$this->_primaryKeyName], $this->_model->__get_columns());
     }
 
 

@@ -7,7 +7,6 @@ use Saola\Core\Routing\Router;
 
 /**
  * Channel
- * @method Module module(string $slug, callable|string|array $callback) add module
  * @method Router router(string $slug, callable|string $callback) add router
  * @method Router child(string $slug, callable|string $callback) add child router
  * @method Router get(string $uri, callable|string $callback) add get route
@@ -50,6 +49,15 @@ class Context extends Router
     public function __construct($data = []){
         parent::__construct($data);
         $this->data['type'] = 'context';
+    }
+
+    /**
+     * @param array<string,mixed>|string|(callable(Module): mixed)|null $data
+     * @param array<string,mixed>|string|(callable(Module): mixed)|null $callback
+     */
+    public function module(array|string|callable|null $data = null, array|string|callable|null $callback = null): Module
+    {
+        return $this->addModule($data, $callback);
     }
     
 }

@@ -11,7 +11,7 @@ namespace Saola\Core\Routing;
  * @property string $method
  * @property string $action
  * @property string $middleware
- * @property string $permission
+ * @property list<string> $permission Serialized local operation values.
  * @property string $name
  * @property string $as
  * @property int $priority
@@ -22,7 +22,6 @@ namespace Saola\Core\Routing;
  * @method $this method(string $method) set method
  * @method $this action(string $action) set action
  * @method $this middleware(string $middleware) set middleware
- * @method $this permission(string $permission) set permission
  * @method $this name(string $name) set name
  * @method $this as(string $as) set as (route name)
  * @method $this display(string $display) set display (display name)
@@ -101,6 +100,7 @@ class Router
     {
         $this->init();
         $this->data = array_merge($this->data, $data);
+        $this->data['permission'] = Permission::values($data['permission'] ?? null);
         if ($parent) {
             $this->parent = $parent;
         }
@@ -117,6 +117,9 @@ class Router
      */
     public function __call($name, $arguments)
     {
+        if (isset(static::$macros[$macro = strtolower($name)])) {
+            return static::$macros[$macro]->call($this, ...$arguments);
+        }
         if (($t = count($arguments)) == 0) {
             return $this;
         }
@@ -141,9 +144,46 @@ class Router
         }
         $this->currentMethod = null;
 
+        throw new \BadMethodCallException('Method ' . $name . ' does not exist on ' . static::class . '; a package adds builder methods with Router::macro().');
+    }
+
+    /** @var array<string,\Closure> builder methods added by packages (saola/admin: menu/list/form), run with $this = the node */
+    protected static array $macros = [];
+
+    public static function macro(string $name, \Closure $macro): void
+    {
+        static::$macros[strtolower($name)] = $macro;
+    }
+
+    public function permission(Permission $permission, Permission ...$permissions): static
+    {
+        $this->data['permission'] = Permission::values([$permission, ...$permissions]);
+
         return $this;
     }
 
+    /** Client aliases only. Laravel middleware is deliberately declared separately. */
+    public function clientMiddleware(string|array ...$middleware): static
+    {
+        $names = [];
+        foreach ($middleware as $value) {
+            foreach (is_array($value) ? $value : [$value] as $name) {
+                if (!is_string($name) || !preg_match('/^[A-Za-z_][\w.-]*(?::[^\s]*)?$/D', $name)) {
+                    throw new \InvalidArgumentException('Client middleware must be a named alias with optional parameters.');
+                }
+                $names[] = $name;
+            }
+        }
+        $this->data['clientMiddleware'] = array_merge($this->data['clientMiddleware'] ?? [], $names);
+        return $this;
+    }
+
+    protected function clientRouteMeta(): array
+    {
+        $parent = $this->parent ? ($this->parent->clientRouteMeta()['middleware'] ?? []) : [];
+        $names = array_merge($parent, $this->data['clientMiddleware'] ?? []);
+        return $names === [] ? [] : ['middleware' => $names];
+    }
 
     public function toArray(): array
     {

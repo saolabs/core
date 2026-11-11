@@ -114,7 +114,14 @@ trait CRUDAction
     final public function save(array $data, $id = null)
     {
         $this->crudErrorMessage = null;
-        if ($id && $m = $this->_model->find($id)) {
+        // update() passes the record it already loaded, so the row is read once.
+        if ($id instanceof \Illuminate\Database\Eloquent\Model) {
+            $m = $id;
+            $id = $m->getKey();
+        } else {
+            $m = $id ? $this->findIncludingTrashed($id) : null;
+        }
+        if ($m) {
             $model = $m;
             $this->crudAction = 'update';
             $this->currentID = $id;
@@ -196,9 +203,11 @@ trait CRUDAction
     public function parseData($data = [])
     {
         $escape = [];
+        $casts = $this->_model->getCasts();
+        $ignore = $this->_model->getIgnoreParse();
         if (count($data)) {
             foreach ($data as $key => $value) {
-                if ((is_array($value) || is_object($value)) && (!$this->_model->casts || !array_key_exists($key, $this->_model->casts)) && (!($ignore = $this->_model->getIgnoreParse()) || !is_array($ignore) || !in_array($key, $ignore))) {
+                if ((is_array($value) || is_object($value)) && !array_key_exists($key, $casts) && !in_array($key, $ignore)) {
                     $escape[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
                 } else {
                     $escape[$key] = $value;
@@ -262,17 +271,20 @@ trait CRUDAction
      */
     public function update($id, array $data = [])
     {
-        if ($this->count(['id' => $id]) == 0) {
-            $this->crudErrorMessage = 'Không thể tìm thấy bản ghi có id là ' . $id . ' để cập nhật';
+        // A loaded model (e.g. one the caller just locked) is updated as is; an id is looked up once, through the
+        // repository scope. A soft-deleted record can still be updated (e.g. moved to another owner while in the trash).
+        $record = $id instanceof \Illuminate\Database\Eloquent\Model ? $id : $this->findIncludingTrashed($id);
+        if (!$record) {
+            $this->crudErrorMessage = 'Không thể tìm thấy bản ghi có id là ' . (is_object($id) ? $id->getKey() : $id) . ' để cập nhật';
             return false;
         }
-        if ($model = $this->save($data, $id)) {
+        if ($model = $this->save($data, $record)) {
             // do something
 
             // $this->afterUpdate($model);
             return $model;
         }
-        $this->crudErrorMessage = 'Không thể cập nhật bản ghi có id là ' . $id . ' (' . $this->crudErrorMessage . ')';
+        $this->crudErrorMessage = 'Không thể cập nhật bản ghi có id là ' . (is_object($id) ? $id->getKey() : $id) . ' (' . $this->crudErrorMessage . ')';
         return false;
     }
 
@@ -460,7 +472,7 @@ trait CRUDAction
             }
             return $ids;
         }
-        $result = $this->find($id);
+        $result = $this->findIncludingTrashed($id);
         if ($result) {
 
             if ($result->canForceDelete()) {
@@ -494,6 +506,13 @@ trait CRUDAction
      * @param $id
      * @return bool
      */
+    /** update/restore/erase/forceDelete must also reach records in the trash, which find() hides behind the soft-delete scope. */
+    protected function findIncludingTrashed($id)
+    {
+        // One query through the repository: default params (owner_id) still apply, trashed rows are visible.
+        return $this->first([$this->_primaryKeyName => $id, '@trashed' => 'all']);
+    }
+
     final public function moveToTrash($id)
     {
         $result = $this->find($id);
@@ -553,7 +572,7 @@ trait CRUDAction
      */
     final public function restore($id)
     {
-        $result = $this->find($id);
+        $result = $this->findIncludingTrashed($id);
         if ($result) {
             DB::beginTransaction();
             try {
@@ -586,7 +605,7 @@ trait CRUDAction
      */
     final public function erase($id)
     {
-        $result = $this->find($id);
+        $result = $this->findIncludingTrashed($id);
         if ($result && $result->canErase()) {
             DB::beginTransaction();
             try {

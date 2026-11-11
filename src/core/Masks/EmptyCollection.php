@@ -13,7 +13,8 @@ use JsonSerializable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Contracts\Support\Arrayable;
 
-abstract class EmptyCollection implements Countable, ArrayAccess, IteratorAggregate, JsonSerializable, Jsonable, Arrayable
+/** The "nothing found" value of a list read: usable directly (and resolvable from the container). */
+class EmptyCollection implements Countable, ArrayAccess, IteratorAggregate, JsonSerializable, Jsonable, Arrayable
 {
 
     private $isLock = false;
