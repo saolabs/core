@@ -1,3 +1,11 @@
+# Saola Core v2.10.0
+
+`ModuleServiceProvider` now calls optional per-context hooks `admin(Context)`, `web(Context)`, `api(Context)` and `mobile(Context)` after `define()`, `menus()` and `permissions()`, so a module declares its routes, menu, list and form for each context in one provider. Every hook is optional; modules using `define()` are unchanged.
+
+Removes the unused abstract `Saola\Core\Routing\ModuleService`; `Saola\Core\Services\ModuleService` is the module service base class.
+
+Validation: 210 tests, 732 assertions under PHP 8.4.
+
 # Saola Core v2.9.1
 
 Removes the PHP 8.4 "Implicitly marking parameter as nullable" deprecations printed on every artisan and test run: `FilterAction::setResourceClass/setCollectionClass` and `ViewStorageManager::addEventListener/addEventQuickHandle/subscribeState` now declare `?string`. `MenuLink::addIcon` drops two defaults that PHP already ignored because they come before a required parameter. No behaviour change.

@@ -2,6 +2,8 @@
 namespace Saola\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Saola\Core\Routing\Context;
+use Saola\Core\System;
 
 /**
  * Điểm khai báo của một module.
@@ -16,6 +18,12 @@ use Illuminate\Support\ServiceProvider;
  * Không có hook `views()`/`migrations()`: `loadViewsFrom()` và
  * `loadMigrationsFrom()` của Laravel đã làm đúng việc đó, gói lại chỉ thêm một
  * lớp vỏ.
+ * 
+ * 
+ * @method void admin(Context $context) khai báo các routes hoặc menu, list hoặc form cho các modules của admin
+ * @method void web(Context $context) khai báo các routes cho các modules của web
+ * @method void api(Context $context) khai báo các routes cho các modules của api
+ * @method void mobile(Context $context) khai báo các routes cho các modules của mobile
  */
 abstract class ModuleServiceProvider extends ServiceProvider
 {
@@ -53,6 +61,27 @@ abstract class ModuleServiceProvider extends ServiceProvider
         $this->define();
         $this->menus();
         $this->permissions();
+
+        if(method_exists($this, 'admin')){
+            $context = System::context('admin');
+            $this->admin($context);
+        }
+
+        if(method_exists($this, 'web')){
+            $context = System::context('web');
+            $this->web($context);
+        }
+
+        if(method_exists($this, 'api')){
+            $context = System::context('api');
+            $this->api($context);
+        }
+
+        if(method_exists($this, 'mobile')){
+            $context = System::context('mobile');
+            $this->mobile($context);
+        }
+        
     }
 
 }
