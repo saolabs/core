@@ -1,4 +1,4 @@
-# Saola Core v2.12.0 (chưa phát hành)
+# Saola Core v2.12.0
 
 Adds the reserved system variable `__site` (public site settings grouped by settings group) supplied by a `Saola\Core\Contracts\SiteProvider` registered once with `ViewContextManager::provideSite()`. System variables (`ViewContextManager::RESERVED`) can no longer be overridden by shared data or view data. The provider's version and the locale feed the view-context revision; the bootstrap revision is unaffected.
 
@@ -6,7 +6,7 @@ Page-data JSON for clients sending `X-Saola-Client: 2` carries only `data`, `vie
 
 Pairs with compiler/client releases that read `__site` and the header-based envelope (P2/P3 of docs/SITE_CONTEXT_CONTRACT_PLAN_2026-11-13.md).
 
-Validation: 215 tests under PHP 8.4.1.
+Validation: 215 tests, 785 assertions under PHP 8.4.1; `composer check`.
 
 # Saola Core v2.11.0
 
