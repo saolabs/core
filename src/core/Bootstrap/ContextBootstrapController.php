@@ -6,7 +6,6 @@ namespace Saola\Core\Bootstrap;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Gate;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Language\ClientCatalogs;
 use Saola\Core\Services\ThemeService;
@@ -30,7 +29,7 @@ final class ContextBootstrapController
                 $cacheControl .= ', s-maxage='.$settings['proxy_ttl'];
             }
         } else {
-            $this->authorize($request, $settings, $catalogs->definition($settings['scope']));
+            ContextBootstrap::authorize($request, $settings, $catalogs->definition($settings['scope']));
             $cacheControl = 'private, no-cache';
         }
 
@@ -48,19 +47,5 @@ final class ContextBootstrapController
         $response->isNotModified($request);
 
         return $response;
-    }
-
-    private function authorize(Request $request, array $settings, array $scope): void
-    {
-        $user = $request->user($settings['guard']);
-        abort_unless($user, 401);
-        if ($settings['ability'] !== null) {
-            abort_unless(Gate::forUser($user)->allows($settings['ability']), 403);
-        }
-        if (($scope['public'] ?? false) !== true) {
-            $scopeUser = $request->user($scope['guard'] ?? null);
-            $ability = $scope['ability'] ?? null;
-            abort_unless($scopeUser && $ability && Gate::forUser($scopeUser)->allows($ability, [$settings['scope']]), 403);
-        }
     }
 }

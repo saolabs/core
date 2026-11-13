@@ -142,8 +142,8 @@ class ViewEngine implements OctaneCompatible
         // Chuẩn bị default view data
         $defaultData = $this->getDefaultViewData();
         
-        // Merge data
-        $viewData = array_merge($defaultData, $data);
+        // Merge data — biến hệ thống (`__site`, `__layout__`…) không bị data ghi đè.
+        $viewData = array_merge($defaultData, array_diff_key($data, array_flip(ViewContextManager::RESERVED)));
 
         return view($viewPath, $viewData);
     }
@@ -255,6 +255,7 @@ class ViewEngine implements OctaneCompatible
         return array_merge($variables, [
             'module_slug' => $this->module,
             'context' => $this->context,
+            '__site' => ViewContextManager::siteObject($this->contextManager->site()),
         ]);
     }
 

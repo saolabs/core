@@ -392,10 +392,31 @@ class ViewHelperService
         return "<script type=\"application/json\" data-type=\"event-registry\">{$jsonData}</script>";
     }
 
-    public function exportApplicationViewData(){
+    /**
+     * Dữ liệu của từng view instance để client hydrate.
+     *
+     * Truyền `$context` khi trang đã xuất `sharedData` của context đó cho client:
+     * shared data được view gốc nhận rồi chuyền xuống layout và các view con, nên
+     * không lọc thì mỗi instance mang một bản sao. Client trộn shared data xuống
+     * dưới data của mọi view, vì vậy bản sao giống hệt là thừa.
+     */
+    public function exportApplicationViewData(?string $context = null){
         $data = $this->viewStorageManager->exportApplicationData();
+        $shared = $context ? $this->getViewContextManager()->getSharedData($context) : [];
+        if ($shared) {
+            foreach ($data as &$view) {
+                foreach ($view['instances'] ?? [] as &$instance) {
+                    foreach ($shared as $key => $value) {
+                        if (is_array($instance['data'] ?? null) && array_key_exists($key, $instance['data']) && $instance['data'][$key] === $value) {
+                            unset($instance['data'][$key]);
+                        }
+                    }
+                }
+                unset($instance);
+            }
+            unset($view);
+        }
         return $data;
-        // return "<script type=\"application/json\" data-type=\"application-data\">".json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)."</script>";
     }
 
     public function exportSpaRoutes($context = null){
@@ -415,9 +436,15 @@ class ViewHelperService
 
     public function resolveRouteComponent(string $context, string $routeName): ?string
     {
-        foreach ($this->exportComponentRoutes($context) as $route) {
-            if (($route['name'] ?? null) === $routeName) {
-                return $route['component'] ?? null;
+        // Chỉ materialize đúng route được hỏi: dựng cả bảng (mỗi route vài lần dò
+        // file view) để lấy một dòng từng tốn ~10 ms ở mọi response JSON.
+        foreach (SPA::getComponentRoutes($context) as $route) {
+            if (($route['name'] ?? null) !== $routeName) {
+                continue;
+            }
+            $component = $this->materializeRoutes([$route], $context, true)[0]['component'] ?? null;
+            if ($component !== null) {
+                return $component;
             }
         }
 

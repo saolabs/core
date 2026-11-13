@@ -196,6 +196,16 @@ return [
         'contexts' => [],
     ],
 
+    // GET /_saola/context/{context}: client tải trạng thái view context (routes,
+    // systemData có __site) khi X-Saola-View-Revision lệch. Context có cấu hình
+    // bootstrap dùng luật quyền của bootstrap; context khác phải có mặt ở đây
+    // (mảng rỗng = công khai; hoặc ['guard' => …, 'ability' => …]), còn lại 404.
+    'view_context' => [
+        'prefix' => '_saola/context',
+        'middleware' => ['web'],
+        'contexts' => ['web' => []],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | API Configuration

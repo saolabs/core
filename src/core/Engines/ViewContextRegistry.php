@@ -14,6 +14,32 @@ final class ViewContextRegistry
 
     private string $defaultContext = '';
 
+    /** @var array<string, list<\Closure(string): array>> */
+    private array $sharers = [];
+
+    private ?\Saola\Core\Contracts\SiteProvider $siteProvider = null;
+
+    public function setSiteProvider(?\Saola\Core\Contracts\SiteProvider $provider): void
+    {
+        $this->siteProvider = $provider;
+    }
+
+    public function siteProvider(): ?\Saola\Core\Contracts\SiteProvider
+    {
+        return $this->siteProvider;
+    }
+
+    public function addSharer(string $context, \Closure $resolver): void
+    {
+        $this->sharers[$context][] = $resolver;
+    }
+
+    /** @return list<\Closure(string): array> */
+    public function sharers(string $context): array
+    {
+        return $this->sharers[$context] ?? [];
+    }
+
     public function get(string $context): ?array
     {
         return $this->contexts[$context] ?? null;
