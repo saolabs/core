@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Saola\Core\Bootstrap;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Js;
 use Saola\Core\Engines\ViewContextManager;
 use Saola\Core\Language\ClientCatalogs;
@@ -49,6 +50,21 @@ final class ContextBootstrap
             'ability' => $ability,
             'proxy_ttl' => (int) ($definition['proxy_ttl'] ?? 0),
         ];
+    }
+
+    /** Luật quyền của một context không public — bootstrap.js và endpoint view context dùng chung. */
+    public static function authorize(Request $request, array $settings, array $scope): void
+    {
+        $user = $request->user($settings['guard']);
+        abort_unless($user, 401);
+        if ($settings['ability'] !== null) {
+            abort_unless(Gate::forUser($user)->allows($settings['ability']), 403);
+        }
+        if (($scope['public'] ?? false) !== true) {
+            $scopeUser = $request->user($scope['guard'] ?? null);
+            $ability = $scope['ability'] ?? null;
+            abort_unless($scopeUser && $ability && Gate::forUser($scopeUser)->allows($ability, [$settings['scope']]), 403);
+        }
     }
 
     public function enabled(string $context): bool
@@ -113,7 +129,8 @@ final class ContextBootstrap
 
         $revision = hash('sha256', json_encode([
             self::SCHEMA, $context, $scope, $state['uiDefault'], $state['uiFallback'], $locales, $keys,
-            $this->contexts->getContextViewRevision($context), $routes,
+            // Không tính shared data: script này công khai, dùng chung cho mọi locale và cache được ở proxy.
+            $this->contexts->getContextViewRevision($context, false), $routes,
         ], JSON_THROW_ON_ERROR));
 
         return [
@@ -148,6 +165,7 @@ final class ContextBootstrap
                 'scope' => $catalogs[$config['uiDefault']]['scope'],
                 'uiLocales' => $config['uiLocales'],
                 'catalogs' => $catalogs,
+                'dictionary' => ClientCatalogs::dictionaryUrl($scope),
             ],
         ];
 

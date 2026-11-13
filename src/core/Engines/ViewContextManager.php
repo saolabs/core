@@ -56,6 +56,19 @@ class ViewContextManager implements OctaneCompatible
     protected $sharedData = [];
 
     /**
+     * Biến hệ thống: có mặt ở mọi view, KHÔNG được ghi đè bởi shared data hay
+     * data của view. Compiler (view.js) destructure đúng danh sách này từ
+     * `systemData`; thêm tên mới phải thêm ở cả hai phía.
+     */
+    public const RESERVED = [
+        '__system__', '__base__', '__component__', '__template__', '__partial__',
+        '__layout__', '__module__', '__page__', '__context__', '__site',
+    ];
+
+    /** @var array<string, array> `__site` đã giải trong request này, theo `version:locale`. */
+    protected array $siteCache = [];
+
+    /**
      * Constructor
      */
     public function __construct(?ViewContextRegistry $registry = null)
@@ -839,34 +852,108 @@ class ViewContextManager implements OctaneCompatible
     /**
      * Stable fingerprint of the effective request-scoped view selection.
      */
-    public function getContextViewRevision(string $context): string
+    public function getContextViewRevision(string $context, bool $withShared = true): string
     {
         $payload = [
             'context' => $context,
             'directories' => $this->getContextDirectories($context) ?? [],
             'variables' => $this->getContextVariables($context) ?? [],
         ];
+        // Shared data là một phần của thứ client đang giữ: đổi nó thì revision
+        // đổi và response kế tiếp mang bản mới. Context không share gì giữ
+        // nguyên revision cũ.
+        if ($withShared && ($shared = $this->getSharedData($context))) {
+            $payload['shared'] = $shared;
+        }
+        // `__site` theo phiên bản + locale, không băm cả mảng. Bootstrap
+        // (withShared=false) bỏ qua: script đó công khai, cache được ở proxy.
+        if ($withShared && ($provider = $this->registry->siteProvider())) {
+            $payload['site'] = $provider->version() . ':' . app()->getLocale();
+        }
 
         return substr(hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES)), 0, 16);
     }
 
+    /**
+     * Đăng ký nguồn `__site` — gọi MỘT LẦN lúc boot. Provider sống cả worker
+     * (registry), dữ liệu giải lười ở từng request theo locale hiện tại.
+     */
+    public function provideSite(?\Saola\Core\Contracts\SiteProvider $provider): self
+    {
+        $this->registry->setSiteProvider($provider);
+        $this->siteCache = [];
+
+        return $this;
+    }
+
+    public function hasSiteProvider(): bool
+    {
+        return $this->registry->siteProvider() !== null;
+    }
+
+    /** Giá trị của `__site` cho request hiện tại; `[]` khi chưa có provider. */
+    public function site(): array
+    {
+        $provider = $this->registry->siteProvider();
+        if (!$provider) {
+            return [];
+        }
+        $locale = app()->getLocale();
+        // Theo phiên bản: thiết lập lưu giữa chừng request thì lần đọc sau thấy bản mới.
+        $key = $provider->version() . ':' . $locale;
+
+        return $this->siteCache[$key] ??= $provider->data($locale);
+    }
+
+    /**
+     * Toàn bộ biến hệ thống của một context — server render và client
+     * (`systemData`) nhận cùng một bộ.
+     */
+    public function systemData(string $context): array
+    {
+        return array_merge(
+            $this->getContextVariables($context) ?? [],
+            ['__context__' => $context, '__site' => self::siteObject($this->site())],
+            // Đường rơi theme → base cho client. Server có
+            // ThemeAwareViewFinder, client thì không: `__layout__` là tiền
+            // tố của CẢ context nên `@extends(__layout__ + "workspace")`
+            // sinh khoá `themes.{slug}.layouts.workspace` ngay cả khi theme
+            // không mang layout đó. Không có cặp này thì client báo
+            // `View "..." not found in registry` và trang trắng.
+            $this->viewFallbackPair($context),
+        );
+    }
+
+    /**
+     * `__site` cho view: đọc được cả `$__site->general->x` (Blade dịch từ
+     * `__site.general.x`) lẫn `$__site['general']['x']`, JSON ra object (rỗng
+     * thì `{}`), luôn truthy như object bên JS. Danh sách giữ là mảng, phần
+     * tử dạng khoá-giá trị cũng được bọc.
+     */
+    public static function siteObject(array $data): \ArrayObject
+    {
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = array_is_list($value)
+                    ? array_map(fn ($item) => is_array($item) && !array_is_list($item) ? self::siteObject($item) : $item, $value)
+                    : self::siteObject($value);
+            }
+        }
+
+        return new \ArrayObject($data, \ArrayObject::ARRAY_AS_PROPS);
+    }
+
     public function exportContextState(string $context): array
     {
+        $systemData = $this->systemData($context);
+
         return [
             'context' => $context,
             'views' => $this->getContextViews($context),
             'revision' => $this->getContextViewRevision($context),
-            'systemData' => array_merge(
-                $this->getContextVariables($context) ?? [],
-                ['__context__' => $context],
-                // Đường rơi theme → base cho client. Server có
-                // ThemeAwareViewFinder, client thì không: `__layout__` là tiền
-                // tố của CẢ context nên `@extends(__layout__ + "workspace")`
-                // sinh khoá `themes.{slug}.layouts.workspace` ngay cả khi theme
-                // không mang layout đó. Không có cặp này thì client báo
-                // `View "..." not found in registry` và trang trắng.
-                $this->viewFallbackPair($context),
-            ),
+            // Object kể cả khi rỗng: client trộn nó xuống dưới data của mọi view.
+            'sharedData' => (object) $this->getSharedData($context),
+            'systemData' => $systemData,
         ];
     }
 
@@ -983,7 +1070,45 @@ class ViewContextManager implements OctaneCompatible
         }
 
         // Merge với shared data hiện có
-        $this->sharedData[$context] = array_merge($this->sharedData[$context], $data);
+        $this->sharedData[$context] = array_merge($this->sharedData[$context], $this->withoutReserved($data, 'share'));
+
+        return $this;
+    }
+
+    /**
+     * Bỏ biến hệ thống khỏi dữ liệu do người dùng cung cấp. Ở chế độ debug thì
+     * báo lỗi ngay: share/truyền `__site`, `__layout__`… là lỗi lập trình, ở
+     * production thì lặng lẽ bỏ để trang vẫn chạy.
+     */
+    protected function withoutReserved(array $data, string $source): array
+    {
+        $clash = array_intersect_key($data, array_flip(self::RESERVED));
+        if (!$clash) {
+            return $data;
+        }
+        if ($source !== 'view data' && config('app.debug')) {
+            throw new \InvalidArgumentException('Không được ' . $source . ' biến hệ thống: ' . implode(', ', array_keys($clash)));
+        }
+
+        return array_diff_key($data, $clash);
+    }
+
+    /**
+     * Đăng ký nguồn shared data cho một context — gọi MỘT LẦN lúc boot.
+     *
+     * `share()` ghi vào instance này, mà instance là scoped: dưới Octane nó được
+     * dựng lại mỗi request nên share lúc boot sẽ mất. Resolver nằm ở registry
+     * (sống cả worker) và được gọi lại ở từng request, vì thế nó phải rẻ: tự
+     * cache kết quả, không query mỗi lần. Nó chạy lười — chỉ khi một view hoặc
+     * revision cần tới — nên đọc được locale mà controller đã chọn.
+     *
+     * Dữ liệu trả về đi nguyên văn ra client: chỉ share thứ công khai.
+     *
+     * @param callable(string): array $resolver
+     */
+    public function shareUsing(string $context, callable $resolver): self
+    {
+        $this->registry->addSharer($context, \Closure::fromCallable($resolver));
 
         return $this;
     }
@@ -996,7 +1121,12 @@ class ViewContextManager implements OctaneCompatible
      */
     public function getSharedData(string $context): array
     {
-        return $this->sharedData[$context] ?? [];
+        $shared = [];
+        foreach ($this->registry->sharers($context) as $resolver) {
+            $shared = array_merge($shared, $this->withoutReserved($resolver($context), 'shareUsing'));
+        }
+
+        return array_merge($shared, $this->sharedData[$context] ?? []);
     }
 
     /**
@@ -1037,7 +1167,7 @@ class ViewContextManager implements OctaneCompatible
         $viewPath = $this->resolvePath($context, $module, $blade, $type);
 
         // Lấy variables từ context (KHÔNG được ghi đè)
-        $variables = $this->getContextVariables($context);
+        $variables = $this->getContextVariables($context) ? $this->systemData($context) : null;
 
         if (!$variables) {
             // Fallback nếu context chưa được đăng ký
@@ -1051,6 +1181,8 @@ class ViewContextManager implements OctaneCompatible
                 '__layout__' => $context . '.layouts.',
                 '__module__' => $context . '.modules.',
                 '__page__' => $context . '.pages.',
+                '__context__' => $context,
+                '__site' => self::siteObject($this->site()),
             ];
         }
 
@@ -1060,7 +1192,7 @@ class ViewContextManager implements OctaneCompatible
         // Loại bỏ các key trùng với variables từ shared data và data
         // Đảm bảo variables KHÔNG bị ghi đè
         $sharedDataFiltered = array_diff_key($sharedData, $variables);
-        $dataFiltered = array_diff_key($data, $variables);
+        $dataFiltered = $this->withoutReserved(array_diff_key($data, $variables), 'view data');
 
         // Merge data theo thứ tự ưu tiên:
         // 1. Variables (từ Directories) - KHÔNG được ghi đè
@@ -1068,11 +1200,10 @@ class ViewContextManager implements OctaneCompatible
         // 3. Module info
         // 4. Data từ render() (đã loại bỏ keys trùng với variables) - có thể ghi đè shared data
         $viewData = array_merge(
-            $variables, // Variables từ Directories - ưu tiên cao nhất, KHÔNG bị ghi đè
+            $variables, // Variables từ Directories + __context__ + __site - KHÔNG bị ghi đè
             $sharedDataFiltered, // Shared data (không có keys trùng với variables)
             [
                 'module_slug' => $module,
-                '__context__' => $context,
             ],
             $dataFiltered // Data từ render() (không có keys trùng với variables)
         );
@@ -1169,6 +1300,7 @@ class ViewContextManager implements OctaneCompatible
     {
         $this->contextViewOverrides = [];
         $this->sharedData = [];
+        $this->siteCache = [];
     }
 
     /**

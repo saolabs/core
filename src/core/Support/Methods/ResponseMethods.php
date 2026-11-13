@@ -109,17 +109,21 @@ trait ResponseMethods
     }
 
     /**
-     * Tạo JSON response
-     * 
-     * Nếu có bladePath, sẽ render view thành HTML và trả về cấu trúc:
-     * ['data' => ..., 'view' => '<html>...</html>']
-     * 
-     * @param array $data Dữ liệu trả về
-     * @param int $status HTTP status code
-     * @param array $headers Headers bổ sung
-     * @param int $jsonOptions Options cho json_encode
-     * @param string|null $bladePath Đường dẫn blade để render HTML (optional)
-     * @return JsonResponse
+     * Phong bì page-data JSON.
+     *
+     * Body CHỈ có `data`, `view` (khoá registry của view cần render, nếu có) và
+     * `auth`. Không khoá nào khác. Metadata đi bằng header:
+     *
+     * - `X-Saola-Envelope: 1`               body là phong bì này;
+     * - `X-Saola-View-Revision: <rev>`      client lệch thì tự GET
+     *                                       `/_saola/context/{context}`;
+     * - `X-Saola-Language-Revision: <held>` chỉ khi client thiếu catalog; cùng
+     *                                       dạng header `X-Saola-Language`, client
+     *                                       tải từ điển qua endpoint dictionary.
+     *
+     * Client cũ (không gửi `X-Saola-Client: 2`) vẫn nhận phong bì cũ có
+     * `viewContext`/`i18n` trong body.
+     * @deprecated nhánh cũ — xoá ở minor kế tiếp, khi mọi tab đã chạy client mới.
      */
     protected function jsonResponse(
         array $data,
@@ -130,9 +134,9 @@ trait ResponseMethods
         array $options = [],
     ): JsonResponse
     {
-        // Nếu có bladePath, render view và thêm vào response
+        $request = request();
+        $legacy = $request->header('X-Saola-Client') !== '2';
         $responseData = ['data' => $data];
-        $responseData['auth'] = app(\Saola\Core\Services\ClientAuth::class)->export(request());
 
         if ($bladePath) {
             try {
@@ -149,14 +153,11 @@ trait ResponseMethods
                 $responseData['view'] = app(ViewContextManager::class)
                     ->resolveClientViewKey($bladePath);
             } catch (\Throwable $e) {
-                // Nếu render view lỗi, chỉ trả về data
-                // Có thể log lỗi nếu cần
-                $responseData['view'] = null;
-                $responseData['view_error'] = 'Không thể render view: ' . $e->getMessage();
+                // Lỗi ở server, không lộ thông điệp exception ra client.
+                report($e);
             }
         }
 
-        $request = request();
         $clientRevision = $request->header('X-Saola-View-Revision');
         $syncRequested = (bool) ($options['syncViewContext'] ?? ($clientRevision !== null));
         $context = $options['viewContext']
@@ -165,44 +166,63 @@ trait ResponseMethods
 
         if ($syncRequested && is_string($context) && $context !== '') {
             $helper = app(ViewHelperService::class);
-            $state = $helper->exportViewContext($context);
-            $revision = $state['revision'];
+            $revision = app(ViewContextManager::class)->getContextViewRevision($context);
             $changed = !is_string($clientRevision) || !hash_equals($revision, $clientRevision);
             $routeName = $request->route()?->getName();
-            $component = $routeName
+            $needsView = ($options['includeView'] ?? true) && !$bladePath;
+            $component = ($needsView || ($legacy && $changed)) && $routeName
                 ? $helper->resolveRouteComponent($context, $routeName)
                 : null;
 
-            $responseData['viewContext'] = [
-                'context' => $context,
-                'views' => $state['views'],
-                'revision' => $revision,
-                'changed' => $changed,
-                'component' => $component,
-            ];
-
-            if ($changed) {
-                $responseData['viewContext']['systemData'] = $state['systemData'];
-                $responseData['viewContext']['routes'] = $state['routes'];
+            if ($needsView && $component) {
+                $responseData['view'] = $component;
             }
 
-            if (($options['includeView'] ?? true) && !$bladePath && $component) {
-                $responseData['view'] = $component;
+            if ($legacy && $changed) {
+                $state = $helper->exportViewContext($context);
+                $responseData['viewContext'] = [
+                    'context' => $context,
+                    'views' => $state['views'],
+                    'revision' => $revision,
+                    'changed' => true,
+                    'component' => $component,
+                    'sharedData' => $state['sharedData'],
+                    'systemData' => $state['systemData'],
+                    'routes' => $state['routes'],
+                ];
+            } elseif ($legacy && !isset($responseData['view'])) {
+                // Client cũ nhận dạng phong bì qua `view`/`viewContext`.
+                $responseData['viewContext'] = ['context' => $context, 'revision' => $revision, 'changed' => false];
             }
 
             $headers['X-Saola-View-Revision'] = $revision;
         }
 
-        // Merge headers mặc định
-        // Only an explicitly prepared, server-side projection may enter page-data.
-        if (request()->attributes->has('saola.i18n')) {
-            $responseData['i18n'] = \Saola\Core\Language\ClientCatalogs::withoutHeld(request()->attributes->get('saola.i18n'), request()->header('X-Saola-Language'));
+        // Catalog chỉ được dựng khi trình duyệt thiếu (closure nhận header
+        // X-Saola-Language). Client mới chỉ nhận revision qua header rồi tự tải.
+        // ponytail: catalog thiếu vẫn bị dựng một lần rồi bỏ; tách hàm chỉ tính
+        // revision khi nhánh legacy bị xoá.
+        if ($request->attributes->has('saola.i18n')) {
+            $held = $request->header('X-Saola-Language');
+            $i18n = \Saola\Core\Language\ClientCatalogs::withoutHeld(value($request->attributes->get('saola.i18n'), $held), $held);
+            if (!empty($i18n['catalogs'])) {
+                if ($legacy) {
+                    $responseData['i18n'] = $i18n;
+                } else {
+                    $headers['X-Saola-Language-Revision'] = implode(';', [
+                        $i18n['scope'],
+                        ...array_map(fn ($code, $catalog) => $code . '=' . (int) ($catalog['revision'] ?? 0), array_keys($i18n['catalogs']), $i18n['catalogs']),
+                    ]);
+                }
+            }
         }
-        $defaultHeaders = [
-            'Content-Type' => 'application/json; charset=utf-8',
-        ];
 
-        $mergedHeaders = array_merge($defaultHeaders, $headers);
+        $responseData['auth'] = app(\Saola\Core\Services\ClientAuth::class)->export($request);
+
+        $mergedHeaders = array_merge([
+            'Content-Type' => 'application/json; charset=utf-8',
+            'X-Saola-Envelope' => '1',
+        ], $headers);
 
         return response()->json($responseData, $status, $mergedHeaders, $jsonOptions);
     }

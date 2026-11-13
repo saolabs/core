@@ -16,6 +16,12 @@ final class ContextBootstrapServiceProvider extends ServiceProvider
 
         if (!$this->app->routesAreCached()) {
             $this->app->booted(function (): void {
+                Route::get(trim((string) config('sao.view_context.prefix', '_saola/context'), '/').'/{context}', \Saola\Core\Http\Controllers\ViewContextController::class)
+                    ->middleware(config('sao.view_context.middleware', ['web']))
+                    ->withoutMiddleware(ApplyTheme::class)
+                    ->where('context', '[a-z][a-z0-9_-]*')
+                    ->name('saola.view-context');
+
                 foreach (array_keys(config('sao.bootstrap.contexts', [])) as $context) {
                     if (!preg_match('/^[a-z][a-z0-9_-]*$/D', (string) $context)) {
                         continue;

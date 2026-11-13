@@ -181,10 +181,21 @@ class ViewContextRuntimeTest extends TestCase
         }
         $manager->setContextViews('web', 'themes.storefront');
         $this->app->instance(ViewContextManager::class, $manager);
-        $this->app->instance(
-            ViewHelperService::class,
-            new ViewHelperService(new ViewStorageManager(), $manager)
-        );
+        // Đếm số lần dựng cả bảng route: response không đổi revision không được dựng.
+        $helper = new class(new ViewStorageManager(), $manager) extends ViewHelperService {
+            public int $tableExports = 0;
+            public function exportSpaRoutes($context = null)
+            {
+                $this->tableExports++;
+                return parent::exportSpaRoutes($context);
+            }
+            public function exportComponentRoutes($context = null)
+            {
+                $this->tableExports++;
+                return parent::exportComponentRoutes($context);
+            }
+        };
+        $this->app->instance(ViewHelperService::class, $helper);
 
         SPA::resetRoutes();
         SPA::active();
@@ -214,13 +225,157 @@ class ViewContextRuntimeTest extends TestCase
         $this->assertSame('themes.storefront.pages.home', $payload['viewContext']['component']);
         $this->assertSame('themes.storefront.pages.home', $payload['viewContext']['routes'][0]['component']);
         $this->assertSame('themes.storefront.pages.home', $payload['view']);
+        $this->assertSame(1, $helper->tableExports);
 
         $request->headers->set('X-Saola-View-Revision', $payload['viewContext']['revision']);
         $unchanged = $controller->response(['ok' => true], null, ['forceJson' => true]);
         $unchangedPayload = $unchanged->getData(true);
 
-        $this->assertFalse($unchangedPayload['viewContext']['changed']);
-        $this->assertArrayNotHasKey('routes', $unchangedPayload['viewContext']);
-        $this->assertArrayNotHasKey('systemData', $unchangedPayload['viewContext']);
+        $this->assertSame(1, $helper->tableExports, 'Revision khớp thì không được dựng lại bảng route.');
+        // Revision khớp: chỉ còn data, auth và khoá view — không khối viewContext nào.
+        $this->assertEqualsCanonicalizing(['data', 'auth', 'view'], array_keys($unchangedPayload));
+        $this->assertSame('themes.storefront.pages.home', $unchangedPayload['view']);
+        $this->assertSame($payload['viewContext']['revision'], $unchanged->headers->get('X-Saola-View-Revision'));
+
+        // Dữ liệu share của context đổi ⇒ revision đổi ⇒ response kế tiếp mang bản mới.
+        $site = ['name' => 'Cũ'];
+        $manager->shareUsing('web', function () use (&$site) { return ['site' => $site]; });
+        $shared = $controller->response(['ok' => true], null, ['forceJson' => true])->getData(true);
+        $this->assertTrue($shared['viewContext']['changed']);
+        $this->assertSame(['site' => ['name' => 'Cũ']], $shared['viewContext']['sharedData']);
+        $this->assertArrayNotHasKey('site', $shared['data'], 'Shared data không đi lẫn vào data của trang.');
+
+        $request->headers->set('X-Saola-View-Revision', $shared['viewContext']['revision']);
+        $this->assertArrayNotHasKey('viewContext', $controller->response(['ok' => true], null, ['forceJson' => true])->getData(true));
+
+        $site = ['name' => 'Mới'];
+        $refreshed = $controller->response(['ok' => true], null, ['forceJson' => true])->getData(true);
+        $this->assertSame('Mới', $refreshed['viewContext']['sharedData']['site']['name']);
+        // Revision của script bootstrap dùng chung không phụ thuộc shared data.
+        $this->assertSame($payload['viewContext']['revision'], $manager->getContextViewRevision('web', false));
+    }
+
+    private function siteProvider(array &$data, string &$version): \Saola\Core\Contracts\SiteProvider
+    {
+        return new class($data, $version) implements \Saola\Core\Contracts\SiteProvider {
+            public int $reads = 0;
+            public function __construct(private array &$data, private string &$version) {}
+            public function version(): string { return $this->version; }
+            public function data(string $locale): array { $this->reads++; return $this->data + ['locale' => $locale]; }
+        };
+    }
+
+    public function test_site_is_a_system_variable_that_cannot_be_overridden(): void
+    {
+        $manager = new ViewContextManager(new ViewContextRegistry());
+        $manager->registerContext('web', ['base' => 'web']);
+        $data = ['general' => ['website_name' => 'Gehihi']];
+        $version = '1';
+        $provider = $this->siteProvider($data, $version);
+        $manager->provideSite($provider);
+
+        $system = $manager->exportContextState('web')['systemData'];
+        $this->assertSame('Gehihi', $system['__site']->general['website_name']);
+        $this->assertSame('web', $system['__context__']);
+        // Một lần giải mỗi request dù gọi nhiều lần.
+        $manager->site();
+        $manager->getContextViewRevision('web');
+        $this->assertSame(1, $provider->reads);
+
+        // Share hay data mang tên hệ thống: debug thì báo lỗi, view data thì bị bỏ.
+        config(['app.debug' => true]);
+        try {
+            $manager->share('web', ['__site' => []]);
+            $this->fail('share(__site) phải bị chặn.');
+        } catch (\InvalidArgumentException) {
+        }
+        config(['app.debug' => false]);
+        $manager->share('web', ['__site' => ['x' => 1], '__layout__' => 'x', 'ok' => 1]);
+        $this->assertSame(['ok' => 1], $manager->getSharedData('web'));
+        $manager->shareUsing('web', fn () => ['__site' => 'hack', 'other' => 2]);
+        $this->assertSame(['other' => 2, 'ok' => 1], $manager->getSharedData('web'));
+
+        $dir = sys_get_temp_dir().'/saola-vcm-'.getmypid();
+        @mkdir($dir.'/web', 0777, true);
+        file_put_contents($dir.'/web/home.blade.php', '');
+        View::addLocation($dir);
+        $view = $manager->render('web', '', 'home', ['__site' => 'hack', '__context__' => 'admin', 'title' => 'T']);
+        $this->assertSame('Gehihi', $view->getData()['__site']['general']['website_name']);
+        $this->assertSame('Gehihi', $view->getData()['__site']->general->website_name, 'Blade dịch __site.general.x thành ->.');
+        $this->assertSame('{}', json_encode(ViewContextManager::siteObject([])));
+        $this->assertSame('{"pwa":{"icons":[{"src":"/a.png"}]}}', json_encode(ViewContextManager::siteObject(['pwa' => ['icons' => [['src' => '/a.png']]]]), JSON_UNESCAPED_SLASHES));
+        $this->assertSame('/a.png', ViewContextManager::siteObject(['pwa' => ['icons' => [['src' => '/a.png']]]])->pwa->icons[0]->src);
+        $this->assertSame('web', $view->getData()['__context__']);
+        $this->assertSame('T', $view->getData()['title']);
+
+        // Reset Octane: lần giải đã nhớ biến mất, provider (registry) vẫn còn.
+        $manager->resetInstanceState();
+        $data['general']['website_name'] = 'Mới';
+        $this->assertSame('Mới', $manager->site()['general']['website_name']);
+    }
+
+    public function test_site_version_drives_view_revision_but_not_bootstrap_revision(): void
+    {
+        $manager = new ViewContextManager(new ViewContextRegistry());
+        $manager->registerContext('web', ['base' => 'web']);
+        $before = $manager->getContextViewRevision('web');
+        $data = ['general' => ['website_name' => 'A']];
+        $version = '1';
+        $manager->provideSite($this->siteProvider($data, $version));
+        $withSite = $manager->getContextViewRevision('web');
+        $this->assertNotSame($before, $withSite);
+        $version = '2';
+        $this->assertNotSame($withSite, $manager->getContextViewRevision('web'));
+        $this->assertSame($before, $manager->getContextViewRevision('web', false));
+        app()->setLocale('en');
+        $en = $manager->getContextViewRevision('web');
+        app()->setLocale('vi');
+        $this->assertNotSame($en, $manager->getContextViewRevision('web'));
+    }
+
+    public function test_new_client_json_body_only_carries_data_view_and_auth(): void
+    {
+        $manager = new ViewContextManager(new ViewContextRegistry());
+        if (!$manager->hasContext('web')) {
+            $manager->registerContext('web', ['base' => 'web']);
+        }
+        $data = ['general' => ['website_name' => 'Gehihi']];
+        $version = '1';
+        $manager->provideSite($this->siteProvider($data, $version));
+        $this->app->instance(ViewContextManager::class, $manager);
+        $this->app->instance(ViewHelperService::class, new ViewHelperService(new ViewStorageManager(), $manager));
+
+        SPA::resetRoutes();
+        SPA::active();
+        SPA::addRoute('web', 'web.home', '/', ['kind' => 'explicit', 'logical' => '@PAGE:home', 'candidates' => ['@PAGE:home']]);
+        SPA::inactive();
+        $route = (new \Illuminate\Routing\Route(['GET'], '/', fn () => null))->name('web.home');
+        $request = \Illuminate\Http\Request::create('/', 'GET', server: [
+            'HTTP_X_SAOLA_VIEW_REVISION' => 'stale',
+            'HTTP_X_SAOLA_CLIENT' => '2',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $request->setRouteResolver(fn () => $route);
+        $request->attributes->set('saola.i18n', fn () => ['scope' => 'web:abc', 'catalogs' => ['vi' => ['revision' => 7, 'messages' => ['a' => 'b']]]]);
+        $this->app->instance('request', $request);
+        $controller = new class {
+            use ResponseMethods;
+            protected string $context = 'web';
+        };
+
+        $response = $controller->response(['ok' => true], null, ['forceJson' => true]);
+        $payload = $response->getData(true);
+        // Revision lệch, catalog thiếu, có __site — body vẫn chỉ ba khoá.
+        $this->assertEqualsCanonicalizing(['data', 'view', 'auth'], array_keys($payload));
+        $this->assertSame(['ok' => true], $payload['data']);
+        $this->assertSame('1', $response->headers->get('X-Saola-Envelope'));
+        $this->assertSame($manager->getContextViewRevision('web'), $response->headers->get('X-Saola-View-Revision'));
+        $this->assertSame('web:abc;vi=7', $response->headers->get('X-Saola-Language-Revision'));
+        $this->assertStringNotContainsString('Gehihi', $response->getContent(), '__site không bao giờ nằm trong body JSON.');
+
+        // Client đã giữ catalog: không header ngôn ngữ.
+        $request->headers->set('X-Saola-Language', 'web:abc;vi=7');
+        $request->attributes->set('saola.i18n', fn ($held) => \Saola\Core\Language\ClientCatalogs::withoutHeld(['scope' => 'web:abc', 'catalogs' => ['vi' => ['revision' => 7]]], $held));
+        $this->assertNull($controller->response(['ok' => true], null, ['forceJson' => true])->headers->get('X-Saola-Language-Revision'));
     }
 }

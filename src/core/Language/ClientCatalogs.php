@@ -55,12 +55,21 @@ final class ClientCatalogs
      */
     public static function withoutHeld(array $config, ?string $held): array
     {
-        if (!$held || !isset($config['scope']) || !is_array($config['catalogs'] ?? null)) {
+        if (!isset($config['scope']) || !is_array($config['catalogs'] ?? null)) {
             return $config;
         }
-        $parts = explode(';', $held);
-        if (array_shift($parts) !== $config['scope']) {
-            return $config;
+        $have = self::held($held, $config['scope']);
+        $config['catalogs'] = array_filter($config['catalogs'], fn ($catalog, $code) => ($have[$code] ?? null) !== ($catalog['revision'] ?? null), ARRAY_FILTER_USE_BOTH);
+
+        return $config;
+    }
+
+    /** @return array<string, int> locale => revision the browser holds for this scope; empty when it declares another scope or none. */
+    private static function held(?string $held, string $scope): array
+    {
+        $parts = explode(';', (string) $held);
+        if (array_shift($parts) !== $scope) {
+            return [];
         }
         $have = [];
         foreach ($parts as $part) {
@@ -69,21 +78,39 @@ final class ClientCatalogs
                 $have[$code] = (int) $revision;
             }
         }
-        $config['catalogs'] = array_filter($config['catalogs'], fn ($catalog, $code) => ($have[$code] ?? null) !== ($catalog['revision'] ?? null), ARRAY_FILTER_USE_BOTH);
 
-        return $config;
+        return $have;
     }
 
-    public function clientConfig(string $scope, ?string $locale = null): array
+    /** With `$held` (the `X-Saola-Language` header) a catalog the browser already holds is not even projected. */
+    public function clientConfig(string $scope, ?string $locale = null, ?string $held = null): array
     {
         $raw = $this->resolver->clientConfig($locale);
+        $paths = array_values(array_unique($this->definition($scope)['keys']));
+        sort($paths);
+        $id = $scope.':'.substr(hash('sha256', json_encode($paths, JSON_THROW_ON_ERROR)), 0, 16);
+        $have = self::held($held, $id);
         $catalogs = [];
-        foreach (array_keys($raw['catalogs']) as $code) {
-            $catalogs[$code] = $this->snapshot($scope, $code);
+        foreach ($raw['catalogs'] as $code => $catalog) {
+            if (($have[$code] ?? null) !== $catalog['revision']) {
+                $catalogs[$code] = $this->snapshot($scope, $code);
+            }
         }
-        return [
-            'locale' => $raw['locale'], 'fallbackLocale' => $raw['fallbackLocale'],
-            'scope' => $catalogs[$raw['locale']]['scope'], 'catalogs' => $catalogs,
-        ];
+        return array_filter(['locale' => $raw['locale'], 'fallbackLocale' => $raw['fallbackLocale'], 'scope' => $id, 'catalogs' => $catalogs,
+            'dictionary' => self::dictionaryUrl($scope)], static fn ($value) => $value !== null);
+    }
+
+    /**
+     * Mẫu URL tải từ điển của một scope (`_locale_` là chỗ điền locale), hoặc null khi
+     * dự án không có route từ điển (route do package admin đăng ký). Client dùng nó
+     * khi header `X-Saola-Language-Revision` báo catalog đang giữ đã cũ.
+     */
+    public static function dictionaryUrl(string $scope): ?string
+    {
+        $name = (string) config('sao.i18n.dictionary_route', 'system.language.dictionary');
+
+        return \Illuminate\Support\Facades\Route::has($name)
+            ? route($name, ['scope' => $scope, 'locale' => '_locale_'], false)
+            : null;
     }
 }
